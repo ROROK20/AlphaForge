@@ -1,0 +1,70 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for AlphaForge
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement! Please describe the feature and the
+        problem it solves so we can evaluate it.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight checklist
+      options:
+        - label: I have searched existing issues and this has not already been requested.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem are you trying to solve? Why does it matter?
+      placeholder: "I'm always frustrated when ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the feature or API you'd like to see.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of AlphaForge does this relate to?
+      options:
+        - Backtesting engine
+        - Signals (technical / ML / ensemble)
+        - Risk management (sizing / drawdown / VaR)
+        - Portfolio optimization
+        - Live / paper trading
+        - Data layer
+        - CLI
+        - Web frontend
+        - Docs
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any alternative solutions or workarounds you've considered.
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Links, references, or examples that help explain the request.
+    validations:
+      required: false

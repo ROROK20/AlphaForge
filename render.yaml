@@ -1,0 +1,24 @@
+# Render.com blueprint for the AlphaForge API (real engine).
+#
+# Deploy: push to GitHub, then in Render → New → Blueprint → pick this repo.
+# Render builds the root Dockerfile and serves the FastAPI app on $PORT.
+#
+# The frontend (Vercel) should set NEXT_PUBLIC_API_URL to the URL Render
+# assigns this service.
+
+services:
+  - type: web
+    name: alphaforge-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Render injects $PORT; uvicorn must bind to it. main() binds 8003 by
+      # default, so we override the start command to honor $PORT in the cloud.
+      - key: PORT
+        value: 8003
+    # Bind uvicorn to Render's $PORT instead of the hard-coded 8003.
+    dockerCommand: sh -c "uvicorn alphaforge.api.app:app --host 0.0.0.0 --port ${PORT:-8003}"

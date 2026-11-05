@@ -1,0 +1,15 @@
+frontend
+.git
+.pytest_cache
+__pycache__
+*.pyc
+.venv
+venv
+build
+dist
+*.egg-info
+htmlcov
+.coverage
+.env
+.env.*
+.DS_Store

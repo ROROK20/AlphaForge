@@ -1,0 +1,42 @@
+# AlphaForge — full-stack one-command demo.
+#
+#   docker compose up --build
+#
+# Brings up:
+#   * backend  — FastAPI + the REAL AlphaForge engine on http://localhost:8003
+#   * frontend — Next.js 15.5.28 / React 19 dashboard on http://localhost:3001
+#
+# The frontend is built with NEXT_PUBLIC_API_URL pointing at the backend, so
+# each dashboard run hits the live engine. If the backend is stopped, the frontend
+# shows only the recorded engine snapshot of its default configuration (badged
+# "Recorded snapshot") and no results for anything else.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: alphaforge-api
+    ports:
+      - "8003:8003"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8003/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # A BUILD arg (inlined into the browser bundle; a runtime env var
+        # would change nothing). The browser runs on your machine, so for this
+        # local stack it talks to the host-published backend port.
+        NEXT_PUBLIC_API_URL: http://localhost:8003
+    image: alphaforge-frontend
+    ports:
+      - "3001:3001"
+    depends_on:
+      - backend

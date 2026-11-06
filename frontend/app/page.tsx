@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import { useMemo, useState, useEffect } from "react";
 import type { BacktestParams, BacktestResult, Fill, Strategy } from "@/lib/types";
 import { ApiRejected, loadRecordedSnapshot, runRealBacktest } from "@/lib/api";
-import MetricCard from "@/components/MetricCard";
+import { benchmarkReturn, gapPhrase, maxDrawdownFromCurve, plainReturn } from "@/lib/reading";
+import Entry from "@/components/Entry";
+import StatsTable from "@/components/StatsTable";
 import EquityChart from "@/components/EquityChart";
 import DrawdownChart from "@/components/DrawdownChart";
 import TradesTable from "@/components/TradesTable";
-import { Play, Github, TrendingUp, Wifi, WifiOff, Loader2, Archive } from "lucide-react";
 
 /**
  * Where the numbers on screen come from. There is no in-browser engine.
@@ -25,48 +26,80 @@ type DataMode = "loading" | "live" | "recorded" | "offline" | "rejected";
 
 interface ModeCopy {
   badge: string;
-  icon: ReactNode;
+  /** The small square beside the badge: solid only when an engine just answered. */
+  markClass: string;
   badgeClass: string;
   title: string;
   footer: (recordedOn?: string) => string;
+  /** The headline when there is no result to state, and any line under it. */
+  noResult: string;
+  noResultDetail?: string;
+  /** Room held for the headline, so a run swapping for the next one does not jump the page. */
+  heroSpace: string;
+  /** What each figure says over its blank paper. */
+  figureEmpty: string;
+  tradesEmpty: string;
 }
+
+const RESULT_HEIGHT = "min-h-[12rem] md:min-h-[8.25rem]";
 
 // A TOTAL map over DataMode: adding a mode without its copy is a type error.
 const MODE_COPY: Record<DataMode, ModeCopy> = {
   loading: {
     badge: "Connecting…",
-    icon: <Loader2 className="w-3.5 h-3.5 animate-spin" />,
-    badgeClass: "border-border text-gray-400",
+    markClass: "border-rule-strong",
+    badgeClass: "text-ink-2",
     title: "Connecting to the AlphaForge engine API.",
     footer: () => "Connecting to the AlphaForge engine…",
+    noResult: "Connecting to the AlphaForge engine.",
+    noResultDetail: "No figures appear until the engine, or its recording of this exact configuration, answers.",
+    heroSpace: RESULT_HEIGHT,
+    figureEmpty: "Waiting for the engine…",
+    tradesEmpty: "Waiting for the engine…",
   },
   live: {
     badge: "Live engine",
-    icon: <Wifi className="w-3.5 h-3.5" />,
-    badgeClass: "border-accent-green/40 bg-accent-green/10 text-accent-green",
+    markClass: "border-plot bg-plot",
+    badgeClass: "text-ink",
     title: "Results computed just now by the AlphaForge engine API.",
     footer: () => "Live results from the AlphaForge engine",
+    noResult: "The engine returned no result.",
+    heroSpace: RESULT_HEIGHT,
+    figureEmpty: "Nothing to plot.",
+    tradesEmpty: "This run made no trades.",
   },
   recorded: {
     badge: "Recorded snapshot",
-    icon: <Archive className="w-3.5 h-3.5" />,
-    badgeClass: "border-yellow-500/40 bg-yellow-500/10 text-yellow-500",
+    markClass: "border-ink",
+    badgeClass: "text-ink",
     title: "Engine API unreachable — showing recorded output of the real engine for this exact configuration.",
     footer: (on) => `Recorded engine output (recorded ${on ?? "?"}) — the engine API is offline`,
+    noResult: "The recording holds no result.",
+    heroSpace: RESULT_HEIGHT,
+    figureEmpty: "Nothing to plot.",
+    tradesEmpty: "This run made no trades.",
   },
   rejected: {
     badge: "Request rejected",
-    icon: <WifiOff className="w-3.5 h-3.5" />,
-    badgeClass: "border-accent-red/40 bg-accent-red/10 text-accent-red",
+    markClass: "border-pen bg-pen",
+    badgeClass: "text-pen",
     title: "The engine API answered and refused this request — see the message below.",
     footer: () => "The engine rejected this request — no results",
+    noResult: "The engine refused this request.",
+    heroSpace: "",
+    figureEmpty: "No result to plot.",
+    tradesEmpty: "No results — the engine rejected this request.",
   },
   offline: {
     badge: "Engine offline",
-    icon: <WifiOff className="w-3.5 h-3.5" />,
-    badgeClass: "border-border bg-panel text-gray-400",
+    markClass: "border-ink-3",
+    badgeClass: "text-ink-2",
     title: "Engine API unreachable and no recording exists for this configuration — no results.",
     footer: () => "Engine offline — no results (nothing is simulated in the browser)",
+    noResult: "No result for this configuration.",
+    heroSpace: "",
+    figureEmpty: "No result to plot.",
+    tradesEmpty: "No results — the engine API is offline and this configuration was not recorded.",
   },
 };
 
@@ -84,11 +117,16 @@ const SLIPPAGE = 0.0005;
 const SYMBOLS = ["AAPL", "MSFT", "NVDA", "TSLA", "GOOGL", "AMZN", "META", "SPY"];
 
 const FILLS: { id: Fill; name: string; caption: string }[] = [
-  // Short names: the select is one grid column wide (the long form, which
-  // truncated in the README screenshot, is the caption below the form).
+  // Short names: the select is one grid column wide. The long form is the
+  // caption below the form and the sentence under the headline.
   { id: "close", name: "Same close", caption: "at the signal bar's close (market-on-close)" },
   { id: "next_close", name: "Next close", caption: "one bar after the signal (next close)" },
 ];
+
+const SOURCE_URL = "https://github.com/ROROK20/AlphaForge";
+
+const cents = (n: number) =>
+  `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function Home() {
   const [symbol, setSymbol] = useState("AAPL");
@@ -155,69 +193,167 @@ export default function Home() {
   // null = no result yet / offline, or an undefined ratio (zero denominator)
   // from the engine: shown as "—", never as a misleading 0.
   const fmt = (n: number | null | undefined) =>
-    n == null ? "—" : n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    n == null ? "—" : n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const fmtPct = (n: number | null | undefined) => (n == null ? "—" : `${(n * 100).toFixed(2)}%`);
   // A difference of two returns: percentage POINTS. The ratio of final equities
   // minus 1 reads as a return gap and is not one (-45.60% for a gap of -89.42 points).
   const fmtPts = (n: number) => `${n > 0 ? "+" : ""}${(n * 100).toFixed(2)} pts`;
   const last = result?.equity[result.equity.length - 1];
   const copy = MODE_COPY[mode];
+  const strategyInfo = STRATEGIES.find((s) => s.id === strategy);
+  const fillInfo = FILLS.find((f) => f.id === fill);
+  const gapLabel = last && result ? fmtPts((last.equity - last.benchmark) / result.params.initialCapital) : "—";
+
+  // The headline, from the same response the figures below plot. Figures come
+  // from `result.params`, the request that produced them, not the live form.
+  const held = last && result ? plainReturn(benchmarkReturn(last, result.params.initialCapital)) : null;
+  const made = m ? plainReturn(m.totalReturn) : null;
+  // The maximum drawdown's dates and values, from the curve both figures plot.
+  const drop = useMemo(() => (result ? maxDrawdownFromCurve(result.equity) : null), [result]);
+
+  const stats = [
+    { label: "Total Return", value: fmtPct(m?.totalReturn) },
+    { label: "CAGR", value: fmtPct(m?.cagr) },
+    { label: "Final Equity", value: last ? `$${last.equity.toLocaleString("en-US")}` : "—" },
+    { label: "vs Buy-Hold", value: gapLabel, marked: !!last },
+    { label: "Max DD", value: fmtPct(m?.maxDrawdown), marked: !!drop },
+    { label: "Vol (ann)", value: fmtPct(m?.volatility) },
+    { label: "Sharpe", value: fmt(m?.sharpe) },
+    { label: "Sortino", value: fmt(m?.sortino) },
+    { label: "Calmar", value: fmt(m?.calmar) },
+    { label: "Win Rate", value: fmtPct(m?.winRate) },
+    { label: "Profit Factor", value: fmt(m?.profitFactor) },
+    { label: "# Trades", value: m == null ? "—" : m.nTrades.toString() },
+  ];
 
   return (
-    <main className="min-h-screen">
-      {/* Header */}
-      <header className="border-b border-border bg-panel/30 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-accent-blue to-accent-purple rounded-lg flex items-center justify-center glow">
-              <TrendingUp className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight">AlphaForge</h1>
-              <p className="text-xs text-gray-500">Quantitative Trading Studio</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <ModeBadge mode={mode} />
-            <a
-              href="https://github.com/ROROK20/AlphaForge"
-              className="flex items-center gap-2 px-3 py-1.5 text-xs border border-border hover:border-accent-blue rounded-md transition-colors"
-            >
-              <Github className="w-3.5 h-3.5" />
-              View Source
-            </a>
-          </div>
+    <main className="column pb-10">
+      <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-b border-rule-strong py-3">
+        <p className="flex flex-wrap items-baseline gap-x-2.5">
+          <span className="text-lg font-bold tracking-tight">AlphaForge</span>
+          <span className="text-sm text-ink-2">Backtest notebook</span>
+        </p>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+          <ModeBadge mode={mode} />
+          <a href={SOURCE_URL} className="inline-block py-1 text-sm text-ink-2 underline hover:text-ink">
+            View Source
+          </a>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Controls */}
-        <div className="bg-panel border border-border rounded-lg p-5 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Play className="w-4 h-4 text-accent-blue" />
-            <h2 className="text-sm font-semibold">Backtest Configuration</h2>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Symbol</label>
-              <select
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value)}
-                className="w-full bg-bg border border-border rounded px-2 py-1.5 text-sm focus:border-accent-blue outline-none"
-              >
-                {SYMBOLS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+      <div className="indent">
+        {/* The point first, in words. Only what the response just said. */}
+        <section className={`mt-5 ${copy.heroSpace}`} aria-live="polite" data-testid="result">
+          {made && held && last && result ? (
+            <div className="settled">
+              {/* Each sentence stays whole where it can: a phone breaks between them. */}
+              <h1 className="text-[1.6875rem] leading-[1.18] font-semibold tracking-tight md:text-[2.75rem]">
+                <span className="inline-block">
+                  {made.verb === "made" ? "Made" : made.verb === "lost" ? "Lost" : "Returned"}{" "}
+                  <span className="text-plot">{made.pct}</span>.
+                </span>{" "}
+                <span className="inline-block">
+                  Buy and hold {held.verb} <span>{held.pct}</span>.
+                </span>
+              </h1>
+              <p className="mt-2.5 max-w-[78ch] text-base leading-snug md:text-[1.0625rem]" data-testid="result-detail">
+                {STRATEGIES.find((s) => s.id === result.params.strategy)?.name} on the synthetic {result.params.symbol}{" "}
+                feed, ${result.params.initialCapital.toLocaleString("en-US")} from{" "}
+                <span className="whitespace-nowrap">{result.params.startDate}</span> to{" "}
+                <span className="whitespace-nowrap">{result.params.endDate}</span>:{" "}
+                <span className="pen-mark">{gapPhrase(last, result.params.initialCapital)}</span>. After{" "}
+                {+(result.params.commission * 100).toFixed(4)}% commission and{" "}
+                {(result.params.slippage * 100).toFixed(2)}% slippage per side, with fills{" "}
+                {FILLS.find((f) => f.id === result.params.fill)?.caption}.{" "}
+                <span className="inline-block">Synthetic prices, not market data.</span>
+              </p>
             </div>
-            <div className="md:col-span-2">
-              <label className="text-xs text-gray-500 mb-1 block">Strategy</label>
+          ) : (
+            <>
+              <h1 className="text-[1.6875rem] leading-[1.18] font-semibold tracking-tight md:text-[2.75rem]">
+                {copy.noResult}
+              </h1>
+              {copy.noResultDetail && (
+                <p className="mt-2.5 max-w-[78ch] text-base leading-snug md:text-[1.0625rem]">{copy.noResultDetail}</p>
+              )}
+            </>
+          )}
+        </section>
+
+        {result?.note && (
+          <p className="notice" data-testid="strategy-note">
+            <strong className="font-semibold text-pen">Note.</strong> {result.note}
+          </p>
+        )}
+
+        {result?.ruined && (
+          <p className="notice" data-testid="ruin-notice">
+            <strong className="font-semibold text-pen">Ruined on {result.ruinDate}:</strong> equity reached $0, the
+            position was liquidated at that bar&apos;s close and nothing traded afterwards. Metrics cover the path
+            through that bar.
+          </p>
+        )}
+
+        {mode === "rejected" && (
+          <p className="notice" data-testid="rejected-notice">
+            <strong className="font-semibold text-pen">The engine rejected this request:</strong> {rejection}
+          </p>
+        )}
+
+        {(mode === "recorded" || mode === "offline") && (
+          <p className="notice" data-testid="offline-notice">
+            {mode === "recorded" ? (
+              <>
+                The engine API is unreachable (or this deployment has none configured). This page shows a{" "}
+                <strong className="font-semibold">recorded snapshot</strong> of the real engine&apos;s output for
+                exactly this configuration, recorded {result?.recordedOn} by{" "}
+                <code>scripts/record_engine_snapshot.py</code> on the API&apos;s synthetic {symbol} feed. Change any
+                setting and there is no recording — start the API (<code>make api</code>) for live runs.
+              </>
+            ) : (
+              <>
+                The engine API is unreachable (or not configured) and this configuration has no recorded snapshot, so
+                there are no results — nothing is simulated in the browser. Start the API (<code>make api</code>) to
+                run it.
+              </>
+            )}
+          </p>
+        )}
+
+        <Entry
+          label="Fig. 1"
+          title="Equity, strategy against buy and hold"
+          caption={
+            <p>
+              Blue: the strategy, net of its costs. Thin line: buy and hold on the same prices from the same capital,
+              charged no costs. Red:{" "}
+              {drop && (
+                <>
+                  the largest fall from a peak,{" "}
+                  <span className="num">{cents(drop.peak.equity)}</span> on{" "}
+                  <span className="num">{drop.peak.date}</span> to{" "}
+                  <span className="num">{cents(drop.trough.equity)}</span> on{" "}
+                  <span className="num">{drop.trough.date}</span>, and{" "}
+                </>
+              )}
+              the gap at the last bar.
+            </p>
+          }
+        >
+          <EquityChart data={result?.equity ?? []} mark={drop} gapLabel={gapLabel} emptyMessage={copy.figureEmpty} />
+        </Entry>
+
+        <Entry label="Setup" title="Backtest configuration">
+          <form className="grid grid-cols-2 gap-x-3 gap-y-2.5 md:grid-cols-7" onSubmit={(e) => e.preventDefault()}>
+            <div className="col-span-2">
+              <label htmlFor="strategy" className="field-label">
+                Strategy
+              </label>
               <select
+                id="strategy"
                 value={strategy}
                 onChange={(e) => setStrategy(e.target.value as Strategy)}
-                className="w-full bg-bg border border-border rounded px-2 py-1.5 text-sm focus:border-accent-blue outline-none"
+                className="field"
               >
                 {STRATEGIES.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -227,30 +363,22 @@ export default function Home() {
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Start</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-bg border border-border rounded px-2 py-1.5 text-sm focus:border-accent-blue outline-none"
-              />
+              <label htmlFor="symbol" className="field-label">
+                Symbol
+              </label>
+              <select id="symbol" value={symbol} onChange={(e) => setSymbol(e.target.value)} className="field">
+                {SYMBOLS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">End</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-bg border border-border rounded px-2 py-1.5 text-sm focus:border-accent-blue outline-none"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">Fill</label>
-              <select
-                value={fill}
-                onChange={(e) => setFill(e.target.value as Fill)}
-                className="w-full bg-bg border border-border rounded px-2 py-1.5 text-sm focus:border-accent-blue outline-none"
-              >
+              <label htmlFor="fill" className="field-label">
+                Fill
+              </label>
+              <select id="fill" value={fill} onChange={(e) => setFill(e.target.value as Fill)} className="field">
                 {FILLS.map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.name}
@@ -259,163 +387,111 @@ export default function Home() {
               </select>
             </div>
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Capital ($)</label>
+              <label htmlFor="start" className="field-label">
+                Start
+              </label>
               <input
+                id="start"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="field font-mono"
+              />
+            </div>
+            <div>
+              <label htmlFor="end" className="field-label">
+                End
+              </label>
+              <input
+                id="end"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="field font-mono"
+              />
+            </div>
+            <div>
+              <label htmlFor="capital" className="field-label">
+                Capital ($)
+              </label>
+              <input
+                id="capital"
                 type="number"
                 value={capital}
                 onChange={(e) => setCapital(Number(e.target.value))}
-                className="w-full bg-bg border border-border rounded px-2 py-1.5 text-sm focus:border-accent-blue outline-none"
+                className="field font-mono"
               />
             </div>
-          </div>
-          <p className="text-xs text-gray-500 mt-3">
-            Strategy: {STRATEGIES.find((s) => s.id === strategy)?.description} ·{" "}
-            Costs per side: {commission}% commission + {(SLIPPAGE * 100).toFixed(2)}% slippage · Fills{" "}
-            {FILLS.find((f) => f.id === fill)?.caption} · Prices: synthetic (seeded per
-            symbol), not market data
-          </p>
-          {result?.note && (
-            <p className="text-xs text-yellow-500 mt-2" data-testid="strategy-note">
-              ⚠ {result.note}
-            </p>
-          )}
-        </div>
+          </form>
+          <ul className="caption mt-3 space-y-0.5">
+            <li>
+              Strategy: {strategyInfo?.description}
+              {result?.executed && (
+                <>
+                  . Engine ran <code>{result.executed}</code>
+                </>
+              )}
+            </li>
+            <li>
+              Costs per side: {commission}% commission + {(SLIPPAGE * 100).toFixed(2)}% slippage
+            </li>
+            <li>Fills {fillInfo?.caption}</li>
+            <li>Prices: synthetic (seeded per symbol), not market data</li>
+          </ul>
+        </Entry>
 
-        {result?.ruined && (
-          <div
-            className="border border-accent-red/40 bg-accent-red/10 rounded-lg px-4 py-3 mb-6 text-xs text-accent-red"
-            data-testid="ruin-notice"
-          >
-            Ruined on {result.ruinDate}: equity reached $0, the position was liquidated at that
-            bar&apos;s close and nothing traded afterwards. Metrics cover the path through that
-            bar.
-          </div>
-        )}
-
-        {mode === "rejected" && (
-          <div
-            className="border border-accent-red/40 bg-accent-red/10 rounded-lg px-4 py-3 mb-6 text-xs text-accent-red"
-            data-testid="rejected-notice"
-          >
-            The engine rejected this request: {rejection}
-          </div>
-        )}
-
-        {(mode === "recorded" || mode === "offline") && (
-          <div
-            className="border border-yellow-500/30 bg-yellow-500/5 rounded-lg px-4 py-3 mb-6 text-xs text-gray-300"
-            data-testid="offline-notice"
-          >
-            {mode === "recorded" ? (
-              <>
-                The engine API is unreachable (or this deployment has none configured). Below
-                is a <strong>recorded snapshot</strong> of
-                the real engine&apos;s output for exactly this configuration, recorded{" "}
-                {result?.recordedOn} by <code>scripts/record_engine_snapshot.py</code> on the
-                API&apos;s synthetic {symbol} feed. Change any setting and there is no
-                recording — start the API (<code>make api</code>) for live runs.
-              </>
-            ) : (
-              <>
-                The engine API is unreachable (or not configured) and this configuration has no recorded
-                snapshot, so there are no results — nothing is simulated in the browser.
-                Start the API (<code>make api</code>) to run it.
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Metrics row */}
-        <div
-          className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6"
-          data-testid="metrics"
+        <Entry
+          label="Fig. 2"
+          title="Drawdown"
+          caption={<p>Distance from rolling peak: how far equity sits below the highest value it has reached so far.</p>}
         >
-          <MetricCard
-            label="Total Return"
-            value={fmtPct(m?.totalReturn)}
-            trend={m == null ? "neutral" : m.totalReturn >= 0 ? "up" : "down"}
-          />
-          <MetricCard
-            label="CAGR"
-            value={fmtPct(m?.cagr)}
-            trend={m == null ? "neutral" : m.cagr >= 0 ? "up" : "down"}
-          />
-          <MetricCard
-            label="Sharpe"
-            value={fmt(m?.sharpe)}
-            trend={m?.sharpe != null && m.sharpe >= 1 ? "up" : "neutral"}
-          />
-          <MetricCard label="Sortino" value={fmt(m?.sortino)} />
-          <MetricCard
-            label="Max DD"
-            value={fmtPct(m?.maxDrawdown)}
-            trend={m == null ? "neutral" : "down"}
-          />
-          <MetricCard label="Calmar" value={fmt(m?.calmar)} />
-          <MetricCard label="Vol (ann)" value={fmtPct(m?.volatility)} />
-          <MetricCard label="Win Rate" value={fmtPct(m?.winRate)} />
-          <MetricCard
-            label="Profit Factor"
-            value={fmt(m?.profitFactor)}
-            trend={m?.profitFactor == null ? "neutral" : m.profitFactor > 1 ? "up" : "down"}
-          />
-          <MetricCard label="# Trades" value={m == null ? "—" : m.nTrades.toString()} />
-          <MetricCard
-            label="Final Equity"
-            value={last ? `$${last.equity.toLocaleString()}` : "—"}
-          />
-          <MetricCard
-            label="vs Buy-Hold"
-            value={last && result ? fmtPts((last.equity - last.benchmark) / result.params.initialCapital) : "—"}
-          />
-        </div>
+          <DrawdownChart data={result?.equity ?? []} mark={drop} emptyMessage={copy.figureEmpty} />
+        </Entry>
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-          <div className="lg:col-span-2">
-            <EquityChart data={result?.equity ?? []} />
-          </div>
-          <DrawdownChart data={result?.equity ?? []} />
-        </div>
-
-        {/* Trades */}
-        <TradesTable
-          trades={result?.trades ?? []}
-          initialCapital={result?.params.initialCapital}
-          emptyMessage={
-            mode === "loading"
-              ? "Waiting for the engine…"
-              : mode === "offline"
-                ? "No results — the engine API is offline and this configuration was not recorded."
-                : mode === "rejected"
-                  ? "No results — the engine rejected this request."
-                  : "This run made no trades."
+        <Entry
+          label="Table 1"
+          title="Statistics"
+          caption={
+            <p>
+              Underlined in red: figures marked on Fig. 1. vs Buy-Hold is the gap between the two total returns, in
+              percentage points. Each figure is rounded on its own, so a difference taken from rounded figures can be
+              off by 0.01. A dash means undefined (a zero denominator) or no result yet.
+            </p>
           }
+        >
+          <StatsTable stats={stats} />
+        </Entry>
+
+        <TradesTable
+          label="Table 2"
+          trades={result ? result.trades : null}
+          equityPnl={last && result ? last.equity - result.params.initialCapital : undefined}
+          emptyMessage={copy.tradesEmpty}
         />
 
-        {/* Footer */}
-        <footer className="mt-12 pt-6 border-t border-border flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+        <Entry label="Limits" title="What the model leaves out">
+          <p className="caption">
+            Shorts pay no borrow cost, cash earns 0%, negative cash is financed free, and there are no margin calls and
+            no market impact. This is research software: not financial advice, and not for trading real money.
+          </p>
+        </Entry>
+
+        <footer className="mt-10 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-t border-rule-strong pt-3 text-[0.8125rem] leading-6 text-ink-2">
           <p>
             AlphaForge · Open-source quant trading framework ·{" "}
-            <a
-              href="https://github.com/ROROK20/AlphaForge"
-              className="underline hover:text-accent-blue transition-colors"
-              target="_blank"
-              rel="noreferrer"
-            >
+            <a href={SOURCE_URL} className="inline-block underline hover:text-ink" target="_blank" rel="noreferrer">
               GitHub
             </a>{" "}
             ·{" "}
             <a
-              href="https://github.com/ROROK20/AlphaForge/blob/main/LICENSE"
-              className="underline hover:text-accent-blue transition-colors"
+              href={`${SOURCE_URL}/blob/main/LICENSE`}
+              className="inline-block underline hover:text-ink"
               target="_blank"
               rel="noreferrer"
             >
               MIT License
             </a>{" "}
-            ·{" "}
-            {/* From the same total map as the badge (MODE_COPY). */}
+            · {/* From the same total map as the badge (MODE_COPY). */}
             <span data-testid="mode-footer">{copy.footer(result?.recordedOn)}</span>
           </p>
           <p>v0.1.0</p>
@@ -429,11 +505,11 @@ function ModeBadge({ mode }: { mode: DataMode }) {
   const copy = MODE_COPY[mode];
   return (
     <span
-      className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md border ${copy.badgeClass}`}
+      className={`flex items-center gap-1.5 text-sm font-medium ${copy.badgeClass}`}
       title={copy.title}
       data-testid="mode-badge"
     >
-      {copy.icon}
+      <span aria-hidden="true" className={`inline-block h-2.5 w-2.5 border-[1.5px] ${copy.markClass}`} />
       {copy.badge}
     </span>
   );

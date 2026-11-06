@@ -115,6 +115,7 @@ function toResult(params: BacktestParams, data: ApiBacktestResponse): BacktestRe
     equity: data.equity,
     trades: data.trades,
     metrics: data.metrics,
+    executed: data.strategyExecuted,
     note: data.note ?? undefined,
     ruined: data.ruined ?? false,
     ruinDate: data.ruinDate ?? null,

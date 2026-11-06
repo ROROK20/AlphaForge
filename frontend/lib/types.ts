@@ -68,6 +68,8 @@ export interface BacktestResult {
   equity: EquityPoint[];
   trades: Trade[];
   metrics: Metrics;
+  /** What the engine actually ran, with its parameters, e.g. "sma_crossover(20,50)". */
+  executed?: string;
   /** Engine disclosure, e.g. when ml_momentum runs as an SMA proxy. */
   note?: string;
   /** Equity reached $0 on ruinDate: liquidated, no trading afterwards. */

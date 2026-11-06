@@ -19,9 +19,9 @@ The demo's prices are seeded synthetic data, not market data for the ticker show
 **Live demo:** https://alphaforge-two-beta.vercel.app (the engine's recorded default run on a synthetic price feed; run the API for live backtests).
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="AlphaForge dashboard with the Live engine badge: an SMA 20/50 backtest computed by the real engine API on its synthetic AAPL price feed — equity curve, drawdown, metrics and a trade log that reconciles with the curve" width="100%">
+  <img src="docs/screenshot.png" alt="AlphaForge backtest notebook with the Live engine badge: an SMA 20/50 backtest computed by the real engine API on its synthetic AAPL price feed: the result in words, an equity curve and drawdown with the maximum drawdown and the final gap marked in place, a statistics table and a trade log that reconciles with the curve" width="100%">
   <br>
-  <em>Captured 2026-11-03 by <code>node e2e/smoke.mjs --capture</code> against the live engine API ("Live engine" badge). The prices are the API's seeded synthetic feed, not AAPL market data — and this SMA 20/50 run trails buy-and-hold. <code>docker compose up</code> for the full stack.</em>
+  <em>Captured 2026-11-05 by <code>node e2e/smoke.mjs --capture</code> against the live engine API ("Live engine" badge). The prices are the API's seeded synthetic feed, not AAPL market data — and this SMA 20/50 run trails buy-and-hold. <code>docker compose up</code> for the full stack.</em>
 </p>
 
 ---
@@ -75,7 +75,7 @@ that dated recording of the default runs, and nothing else.
 │  Next.js dashboard       │  ───────────────────────────▶ │  FastAPI  (alphaforge/api/app.py)        │
 │  :3001                   │   {symbol, strategy, dates}   │  • BacktestEngine (real)      │
 │  EquityChart / Drawdown  │ ◀───────────────────────────  │  • technical Signals          │
-│  MetricCard / Trades     │   equity · metrics · trades   │  • var_report · Markowitz     │
+│  Statistics / Trades     │   equity · metrics · trades   │  • var_report · Markowitz     │
 │  (API down: recorded     │                               │  synthetic-or-supplied OHLCV  │
 │   engine output or none) │                               │  :8003                        │
 └─────────────────────────┘                               └──────────────────────────────┘

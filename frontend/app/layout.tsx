@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
+import { Hanken_Grotesk, Spline_Sans_Mono } from "next/font/google";
 import { resolveBaseUrl } from "@/lib/urls";
 import "./globals.css";
+
+// Self-hosted at build time: the page makes no call to a font service.
+const hanken = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-hanken", display: "swap" });
+const splineMono = Spline_Sans_Mono({ subsets: ["latin"], variable: "--font-spline-mono", display: "swap" });
 
 // Absolute Open Graph / Twitter image links need the public site's URL. A
 // production build without NEXT_PUBLIC_SITE_URL emits no metadataBase and no
@@ -16,10 +21,10 @@ const OG_IMAGE = {
   url: "/og.png",
   width: 1200,
   height: 630,
-  alt: "AlphaForge dashboard: the engine's recorded output for an SMA crossover on synthetic prices",
+  alt: "AlphaForge backtest notebook: the engine's recorded output for an SMA crossover on synthetic prices, not market data",
 };
 
-const OG_TITLE = "AlphaForge — Quant Trading Studio";
+const OG_TITLE = "AlphaForge: Quant Trading Studio";
 const OG_DESCRIPTION =
   "Open-source Python framework for backtesting, ML signals and portfolio optimization. Pictured: the engine's recorded output on synthetic prices, not market data.";
 
@@ -64,8 +69,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="font-mono antialiased">{children}</body>
+    <html lang="en" className={`${hanken.variable} ${splineMono.variable}`}>
+      <body className="font-sans antialiased">{children}</body>
     </html>
   );
 }

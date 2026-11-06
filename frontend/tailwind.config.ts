@@ -8,18 +8,21 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        bg: "#0a0e1a",
-        panel: "#0f1525",
-        border: "#1c2540",
-        accent: {
-          green: "#10b981",
-          red: "#ef4444",
-          blue: "#3b82f6",
-          purple: "#a855f7",
-        },
+        paper: "var(--paper)",
+        field: "var(--field)",
+        quad: "var(--quad)",
+        rule: "var(--rule)",
+        "rule-strong": "var(--rule-strong)",
+        ink: "var(--ink)",
+        "ink-2": "var(--ink-2)",
+        "ink-3": "var(--ink-3)",
+        plot: "var(--plot)",
+        "plot-wash": "var(--plot-wash)",
+        pen: "var(--pen)",
       },
       fontFamily: {
-        mono: ["JetBrains Mono", "ui-monospace", "monospace"],
+        sans: ["var(--font-hanken)", "system-ui", "sans-serif"],
+        mono: ["var(--font-spline-mono)", "ui-monospace", "monospace"],
       },
     },
   },

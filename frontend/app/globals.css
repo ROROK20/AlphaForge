@@ -2,45 +2,298 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * A research notebook in daylight. Pale cool paper, blue-black ink, one blue for
+ * the plotted strategy, one red pen. The red directs attention to what a careful
+ * reader would check; it never means bad, and a profit never turns green.
+ */
 :root {
-  --bg: #0a0e1a;
+  --paper: oklch(0.978 0.006 235);
+  --field: oklch(0.992 0.003 235);
+  --quad: oklch(0.925 0.022 235);
+  --rule: oklch(0.87 0.016 240);
+  --rule-mid: oklch(0.76 0.018 245);
+  --rule-strong: oklch(0.56 0.02 250);
+  --ink: oklch(0.23 0.02 255);
+  --ink-2: oklch(0.39 0.02 255);
+  --ink-3: oklch(0.47 0.02 255);
+  --plot: oklch(0.46 0.15 258);
+  --plot-wash: oklch(0.94 0.024 250);
+  --pen: oklch(0.5 0.185 27);
 }
 
 * {
-  border-color: rgb(28 37 64);
+  border-color: var(--rule);
+}
+
+html {
+  background: var(--paper);
+  color-scheme: light;
 }
 
 body {
-  background: linear-gradient(135deg, #0a0e1a 0%, #0d1424 100%);
-  color: #e5e7eb;
+  background: var(--paper);
+  color: var(--ink);
   min-height: 100vh;
-  font-feature-settings: "cv11", "ss01";
+  font-kerning: normal;
+  font-variant-numeric: lining-nums;
 }
 
-.glow {
-  box-shadow: 0 0 40px -10px rgba(59, 130, 246, 0.3);
+h1,
+h2 {
+  text-wrap: balance;
 }
 
-.metric-card {
-  background: linear-gradient(180deg, #0f1525 0%, #0a0f1f 100%);
-  border: 1px solid rgb(28 37 64);
-  border-radius: 0.5rem;
-  padding: 1rem;
-  transition: border-color 0.2s ease;
+:focus-visible {
+  outline: 2px solid var(--plot);
+  outline-offset: 2px;
 }
 
-.metric-card:hover {
-  border-color: rgb(59 130 246 / 0.5);
+code {
+  font-family: var(--font-spline-mono), ui-monospace, monospace;
+  font-size: 0.92em;
+  font-variant-ligatures: none;
 }
 
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+a {
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
 }
-::-webkit-scrollbar-track {
-  background: #0a0e1a;
+
+.caption {
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--ink-2);
+  max-width: 78ch;
+  text-wrap: pretty;
 }
-::-webkit-scrollbar-thumb {
-  background: #1c2540;
-  border-radius: 3px;
+
+.caption p + p {
+  margin-top: 0.25rem;
+}
+
+/* A figure inside a sentence: mono like the tables, sized to sit on the same line. */
+.num {
+  font-family: var(--font-spline-mono), ui-monospace, monospace;
+  font-size: 0.93em;
+  white-space: nowrap;
+}
+
+/* Plot heights. On a short window the first figure still fits whole, axis included. */
+.plot-equity {
+  height: 270px;
+}
+
+.plot-drawdown {
+  height: 200px;
+}
+
+@media (min-width: 768px) and (min-height: 760px) {
+  .plot-equity {
+    height: 340px;
+  }
+
+  .plot-drawdown {
+    height: 220px;
+  }
+}
+
+/* The red pen under a figure: "look here", whatever the figure says. */
+.pen-mark {
+  text-decoration: underline;
+  text-decoration-color: var(--pen);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.22em;
+}
+
+/* Blank graph paper, shown under a figure with nothing to plot yet. */
+.graph-paper {
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--quad) 1px, transparent 1px),
+    linear-gradient(90deg, var(--quad) 1px, transparent 1px);
+  background-size: 16px 16px;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+/* The reading column: references hang in the left margin on a wide page. */
+.column {
+  margin-inline: auto;
+  max-width: 74rem;
+  padding-inline: 1rem;
+}
+
+.entry {
+  position: relative;
+  margin-top: 1.75rem;
+}
+
+.entry-label {
+  margin-right: 0.625rem;
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) {
+  .column {
+    padding-inline: 2rem;
+  }
+
+  .indent {
+    margin-left: 5.5rem;
+  }
+
+  .entry-label {
+    position: absolute;
+    left: -5.5rem;
+    margin-right: 0;
+  }
+}
+
+/* A note that qualifies everything below it: ruled, not boxed. */
+.notice {
+  border-top: 1px solid var(--rule-strong);
+  border-bottom: 1px solid var(--rule);
+  padding-block: 0.4375rem;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.field {
+  display: block;
+  width: 100%;
+  min-height: 2.25rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--field);
+  border: 1px solid var(--rule-strong);
+  border-radius: 2px;
+  font-size: 0.875rem;
+  color: var(--ink);
+  transition: border-color 150ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.field:hover {
+  border-color: var(--ink);
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
+
+/* Table 1: three columns of ruled rows, read top to bottom, one column on a phone. */
+.stats {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  border-top: 1px solid var(--rule-strong);
+}
+
+.stat-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 2rem;
+  padding: 0.3125rem 0.125rem;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.875rem;
+}
+
+.stat-value {
+  font-family: var(--font-spline-mono), ui-monospace, monospace;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+@media (min-width: 560px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(6, auto);
+    grid-auto-flow: column;
+    column-gap: 2rem;
+  }
+}
+
+@media (min-width: 1000px) {
+  .stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(4, auto);
+    column-gap: 2.5rem;
+  }
+}
+
+/* Table 2: the whole log, in the column's flow; sideways scroll on a phone only. */
+.table-scroll {
+  overflow-x: auto;
+  border-top: 1px solid var(--rule-strong);
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.trades {
+  width: 100%;
+  min-width: 42rem;
+  border-collapse: collapse;
+  font-family: var(--font-spline-mono), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.trades th {
+  padding: 0.4375rem 0.625rem;
+  border-bottom: 1px solid var(--rule-strong);
+  font-family: var(--font-hanken), system-ui, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: left;
+  color: var(--ink-2);
+}
+
+.trades th.text-right {
+  text-align: right;
+}
+
+.trades td {
+  padding: 0.3125rem 0.625rem;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+}
+
+.trades td.text-ink-3 {
+  color: var(--ink-3);
+}
+
+/* A stronger rule every fifth row, so a long column can be followed by eye. */
+.trades tbody tr:nth-child(5n) td {
+  border-bottom-color: var(--rule-mid);
+}
+
+.trades tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* A result arriving is the page's one piece of motion. */
+.settled {
+  animation: settle 200ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@keyframes settle {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

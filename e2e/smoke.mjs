@@ -96,7 +96,7 @@ async function uiReconciliation(page) {
   const cells = await page.locator("table tbody tr td:last-child").allTextContents();
   const rows = cells.filter((t) => /\$/.test(t));
   const tradeSum = rows.reduce((s, t) => s + dollars(t), 0);
-  const finalText = await page.locator(".metric-card", { hasText: "Final Equity" }).locator("div").nth(1).textContent();
+  const finalText = await page.locator(".stat-row", { hasText: "Final Equity" }).locator("div").nth(1).textContent();
   const equityPnl = dollars(finalText) - INITIAL_CAPITAL;
   return { n: rows.length, tradeSum, equityPnl, gap: Math.abs(tradeSum - equityPnl), bound: 0.005 * (rows.length + 1) + 1e-9 };
 }
@@ -407,7 +407,7 @@ try {
     const end = sma.equity[sma.equity.length - 1];
     const gap = (end.equity - end.benchmark) / INITIAL_CAPITAL;
     const want = `${gap > 0 ? "+" : ""}${(gap * 100).toFixed(2)} pts`;
-    const shown = await page.locator(".metric-card", { hasText: "vs Buy-Hold" }).locator("div").nth(1).textContent();
+    const shown = await page.locator(".stat-row", { hasText: "vs Buy-Hold" }).locator("div").nth(1).textContent();
     if (shown !== want) throw new Error(`"${shown}" != "${want}"`);
   });
   await check("UI trade log row 1 shows the live engine's fill dates and prices", async () => {

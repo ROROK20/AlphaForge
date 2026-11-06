@@ -1,12 +1,15 @@
 "use client";
 
 import type { Trade } from "@/lib/types";
-import clsx from "clsx";
+import { largestLoss } from "@/lib/reading";
+import Entry from "@/components/Entry";
 
 interface Props {
-  trades: Trade[];
-  /** When given, the header shows the trade log's net P&L total. */
-  initialCapital?: number;
+  label: string;
+  /** null = nobody has answered yet: no count and no total, not "0 trades". */
+  trades: Trade[] | null;
+  /** Final equity minus capital: what the log's net P&L column has to sum to. */
+  equityPnl?: number;
   emptyMessage?: string;
 }
 
@@ -16,107 +19,125 @@ const money = (n: number) =>
     maximumFractionDigits: 2,
   })}`;
 
-export default function TradesTable({ trades, initialCapital, emptyMessage }: Props) {
+/**
+ * A price exactly as the engine sent it, kept to its digits, with the missing
+ * trailing zero held as invisible space so the decimal points still line up.
+ */
+function Price({ value }: { value: number }) {
+  const text = String(value);
+  const decimals = text.includes(".") ? text.length - text.indexOf(".") - 1 : -1;
+  const padding = decimals >= 2 ? "" : decimals === 1 ? "0" : ".00";
+  return (
+    <>
+      ${text}
+      {padding && <span className="invisible">{padding}</span>}
+    </>
+  );
+}
+
+export default function TradesTable({ label, trades, equityPnl, emptyMessage }: Props) {
+  const rows = trades ?? [];
   // Net P&L (after commission and slippage). The engine guarantees the log's
   // total equals final equity minus initial capital (the reconciliation invariant),
-  // so the header total can be checked against the Final Equity card, to within
-  // the rounding of the rows it sums: each row arrives rounded to the cent.
-  const netTotal = trades.reduce((s, t) => s + t.pnlNetAbs, 0);
+  // so the total can be checked against Final Equity, to within the rounding of
+  // the rows it sums: each row arrives rounded to the cent.
+  const netTotal = rows.reduce((s, t) => s + t.pnlNetAbs, 0);
+  const worst = largestLoss(rows);
+  const difference = equityPnl === undefined ? null : Math.abs(netTotal - equityPnl);
   return (
-    <div className="bg-panel border border-border rounded-lg overflow-hidden">
-      <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-300">Trade Log</h3>
-        <span className="text-xs text-gray-500">
-          {trades.length} trades
-          {initialCapital !== undefined && (
-            <>
-              {" "}
-              ·{" "}
-              <span title="The sum of the rows below, each rounded to the cent, so it can differ from Final Equity minus capital by a few cents.">
-                net P&L <span data-testid="trade-net-total">{money(netTotal)}</span>
-              </span>
-            </>
-          )}
-        </span>
-      </div>
-      <div className="overflow-auto max-h-96">
-        <table className="w-full text-xs">
-          <thead className="bg-bg sticky top-0">
-            <tr className="text-gray-500 uppercase tracking-wider">
-              <th className="px-4 py-2 text-left">#</th>
-              <th
-                className="px-4 py-2 text-left"
-                title="The date of the close this trade was filled at. Entry $ is that close plus slippage against the trade."
-              >
+    <Entry
+      label={label}
+      title="Trade log"
+      aside={
+        trades && (
+          <span className="caption font-mono">
+            {trades.length} {trades.length === 1 ? "trade" : "trades"}
+            {equityPnl !== undefined && (
+              <>
+                {" "}
+                ·{" "}
+                <span title="The sum of the rows below, each rounded to the cent, so it can differ from Final Equity minus capital by a few cents.">
+                  net P&L <span data-testid="trade-net-total">{money(netTotal)}</span>
+                </span>
+              </>
+            )}
+          </span>
+        )
+      }
+      caption={
+        rows.length > 0 &&
+        equityPnl !== undefined &&
+        difference !== null && (
+          <>
+            <p data-testid="reconciliation">
+              The column sums to <span className="num">{money(netTotal)}</span>. Final Equity minus capital is{" "}
+              <span className="num">{money(equityPnl)}</span>.{" "}
+              {difference.toFixed(2) === "0.00"
+                ? "They agree to the cent."
+                : `The difference, $${difference.toFixed(2)}, is each row's rounding to the cent.`}
+            </p>
+            {worst && (
+              <p>Underlined: the largest net loss, trade {worst.id}.</p>
+            )}
+          </>
+        )
+      }
+    >
+      <div
+        className="table-scroll"
+        role="region"
+        aria-label="Trade log, scrolls sideways on a narrow screen"
+        tabIndex={0}
+      >
+        <table className="trades">
+          <thead>
+            <tr>
+              <th className="text-right">#</th>
+              <th title="The date of the close this trade was filled at. Entry $ is that close plus slippage against the trade.">
                 Entry
               </th>
-              <th
-                className="px-4 py-2 text-left"
-                title="The date of the close this trade was filled at. A position still open on the last bar, or ruined, is marked at that bar's close with no slippage."
-              >
+              <th title="The date of the close this trade was filled at. A position still open on the last bar, or ruined, is marked at that bar's close with no slippage.">
                 Exit
               </th>
-              <th className="px-4 py-2 text-left">Side</th>
-              <th className="px-4 py-2 text-right">Entry $</th>
-              <th className="px-4 py-2 text-right">Exit $</th>
+              <th>Side</th>
+              <th className="text-right">Entry $</th>
+              <th className="text-right">Exit $</th>
               <th
-                className="px-4 py-2 text-right"
+                className="text-right"
                 title="The trade's return between its entry and exit fills, signed by side: positive means the price moved in the trade's favour (before commission)."
               >
                 Return %
               </th>
-              <th className="px-4 py-2 text-right">Net P&L $</th>
+              <th className="text-right">Net P&L $</th>
             </tr>
           </thead>
           <tbody>
-            {trades.map((t) => (
-              <tr key={t.id} className="border-t border-border hover:bg-bg/50">
-                <td className="px-4 py-2 text-gray-500">{t.id}</td>
-                <td className="px-4 py-2 tabular-nums">{t.entryDate}</td>
-                <td className="px-4 py-2 tabular-nums">{t.exitDate}</td>
-                <td className="px-4 py-2">
-                  <span
-                    className={clsx(
-                      "px-1.5 py-0.5 rounded text-[10px] uppercase",
-                      t.direction === "long"
-                        ? "bg-accent-green/20 text-accent-green"
-                        : "bg-accent-red/20 text-accent-red",
-                    )}
-                  >
-                    {t.direction}
-                  </span>
+            {rows.map((t) => (
+              <tr key={t.id}>
+                <td className="text-right text-ink-3">{t.id}</td>
+                <td>{t.entryDate}</td>
+                <td>{t.exitDate}</td>
+                <td>{t.direction}</td>
+                <td className="text-right">
+                  <Price value={t.entryPrice} />
                 </td>
-                <td className="px-4 py-2 text-right tabular-nums">${t.entryPrice}</td>
-                <td className="px-4 py-2 text-right tabular-nums">${t.exitPrice}</td>
-                <td
-                  className={clsx(
-                    "px-4 py-2 text-right tabular-nums",
-                    t.pnlPct > 0 ? "text-accent-green" : "text-accent-red",
-                  )}
-                >
+                <td className="text-right">
+                  <Price value={t.exitPrice} />
+                </td>
+                <td className="text-right">
                   {t.pnlPct > 0 ? "+" : ""}
                   {(t.pnlPct * 100).toFixed(2)}%
                 </td>
-                <td
-                  className={clsx(
-                    "px-4 py-2 text-right tabular-nums",
-                    t.pnlNetAbs > 0 ? "text-accent-green" : "text-accent-red",
-                  )}
-                >
-                  {money(t.pnlNetAbs)}
+                <td className="text-right">
+                  <span className={worst?.id === t.id ? "pen-mark" : undefined}>{money(t.pnlNetAbs)}</span>
                 </td>
               </tr>
             ))}
-            {trades.length === 0 && (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                  {emptyMessage ?? "No trades."}
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
       </div>
-    </div>
+      {/* Outside the scrolling table, so a phone reads it without scrolling sideways. */}
+      {rows.length === 0 && <p className="caption mx-auto py-6 text-center">{emptyMessage ?? "No trades."}</p>}
+    </Entry>
   );
 }

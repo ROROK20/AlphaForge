@@ -13,6 +13,7 @@ import sys
 from datetime import datetime
 
 import click
+import numpy as np
 import pandas as pd
 from rich.console import Console
 from rich.markup import escape
@@ -317,9 +318,11 @@ def _print_ascii_curve(equity: pd.Series, baseline: float, width: int = 60, heig
     def scale(v):
         return int((v - mn) / (mx - mn) * (height - 1))
 
-    # downsample
-    step = max(1, len(values) // width)
-    sampled = values[::step][:width]
+    # A series wider than the plot is sampled at evenly spaced bars that always
+    # include the first and the last, so the curve ends where the run ended.
+    sampled = values
+    if len(values) > width:
+        sampled = values[np.arange(width) * (len(values) - 1) // (width - 1)]
 
     canvas = [[" "] * len(sampled) for _ in range(height)]
     for col, val in enumerate(sampled):

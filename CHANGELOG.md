@@ -3,6 +3,15 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **`alphaforge backtest` plots the whole equity curve.** The ASCII curve kept every
+  n-th bar and stopped at 60 columns, so it could end before the run did: on the
+  README's 1,006-bar AAPL command it stopped 61 bars early, at $94,322 against a
+  final $88,388. It now samples evenly spaced bars from the first to the last.
+
 ## [0.1.0] — first public release
 
 2026-11-04

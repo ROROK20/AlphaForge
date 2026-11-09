@@ -747,11 +747,11 @@ tests/test_backtest.py::TestBacktestEngine::test_returns_backtest_result PASSED
 tests/test_backtest.py::TestBacktestEngine::test_equity_curve_length PASSED
 tests/test_metrics.py::TestSharpRatio::test_sharpe_known_value PASSED
 ...
-698 passed
+703 passed
 ```
-<sub>Count verified 2026-11-04 (Python 3.12). Needs `pip install -e ".[dev,torch]"` — with
+<sub>Count verified 2026-11-09 (Python 3.12). Needs `pip install -e ".[dev,torch]"` — with
 `.[dev]` alone the fifteen tests that need torch skip (it is its own extra), giving
-683 passed / 15 skipped.</sub>
+688 passed / 15 skipped.</sub>
 
 ### Live-fire smoke test
 

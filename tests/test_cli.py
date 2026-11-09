@@ -216,6 +216,34 @@ def test_the_results_table_says_na_for_a_run_with_no_figures(capsys):
         assert "n/a" in row, row
 
 
+def _ascii_curve(equity: pd.Series) -> tuple[list[str], int]:
+    """The printed equity curve's canvas rows (top first) and its column count."""
+    from alphaforge import cli
+
+    with cli.console.capture() as captured:
+        cli._print_ascii_curve(equity, baseline=100_000)
+    lines = captured.get().splitlines()
+    rows = [line.split("│", 1)[1] for line in lines if line.startswith("             │")]
+    axis = next(line for line in lines if "└" in line)
+    return rows, axis.count("─")
+
+
+@pytest.mark.parametrize("n", [30, 61, 120, 1006, 2348])
+def test_the_ascii_equity_curve_runs_from_the_first_bar_to_the_last(n):
+    """The README's backtest command has 1,006 bars, and the plot stopped 61 bars
+    short of the end, at an equity the run did not finish on. Here the first bar is
+    the series' low and the last its high: the first column must sit on the bottom
+    row and the last column on the top row, whatever the length."""
+    equity = pd.Series(np.linspace(100_000, 90_000, n),
+                       index=pd.date_range("2020-01-01", periods=n, freq="B"))
+    equity.iloc[0] = 80_000
+    equity.iloc[-1] = 120_000
+    rows, columns = _ascii_curve(equity)
+    assert columns == min(n, 60)
+    assert len(rows[0]) == columns and rows[0][-1] != " ", "the final bar is not plotted"
+    assert rows[-1][0] != " ", "the first bar is not plotted"
+
+
 def test_optimize_refuses_a_ticker_with_no_data_rather_than_dropping_it():
     """Optimizing the others and exiting 0 is not what was asked for."""
     empty = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])

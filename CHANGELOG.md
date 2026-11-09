@@ -37,6 +37,21 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **Historical VaR's horizon scaling is described correctly.** A code comment said
   the square-root-of-time rule left the drift unscaled; it scales it by
   `sqrt(horizon)`. The figures do not change.
+- **Dashboard, shared links:** `og:url` named the GitHub repository; it is now the
+  site's own URL (`NEXT_PUBLIC_SITE_URL`), and absent when that is unset.
+- **Dashboard, phones:** form fields are 16px below 640px wide, so iOS Safari no
+  longer zooms into a focused field, and every field is 36px tall: on an iPhone the
+  selects were 23px beside 36px inputs. The recorded date in the footer no longer
+  breaks at a hyphen.
+- **Dashboard, hosted demo:** with no engine API built in, the notices told visitors
+  to start one (`make api`), which a visitor to the hosted page cannot do. They now
+  say the hosted demo has only its recordings and how to run the stack locally.
+- **Dashboard, Firefox:** the date fields are wider, so the year no longer runs into
+  the calendar icon.
+
+### Removed
+
+- The frontend's unused `lucide-react` and `clsx` dependencies.
 
 ## [0.1.0] — first public release
 

@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, type ReactNode } from "react";
 import type { BacktestParams, BacktestResult, Fill, Strategy } from "@/lib/types";
-import { ApiRejected, loadRecordedSnapshot, runRealBacktest } from "@/lib/api";
+import { API_URL, ApiRejected, loadRecordedSnapshot, runRealBacktest } from "@/lib/api";
 import { benchmarkReturn, gapPhrase, maxDrawdownFromCurve, plainReturn } from "@/lib/reading";
 import Entry from "@/components/Entry";
 import StatsTable from "@/components/StatsTable";
@@ -30,7 +30,7 @@ interface ModeCopy {
   markClass: string;
   badgeClass: string;
   title: string;
-  footer: (recordedOn?: string) => string;
+  footer: (recordedOn?: string) => ReactNode;
   /** The headline when there is no result to state, and any line under it. */
   noResult: string;
   noResultDetail?: string;
@@ -42,6 +42,11 @@ interface ModeCopy {
 }
 
 const RESULT_HEIGHT = "min-h-[12rem] md:min-h-[8.25rem]";
+
+// A production build with no NEXT_PUBLIC_API_URL has no engine to call: the hosted
+// demo. Its visitors cannot start one, so the offline notices tell them how to run
+// the stack themselves instead of naming a command for a server they do not have.
+const NO_ENGINE = API_URL === null;
 
 // A TOTAL map over DataMode: adding a mode without its copy is a type error.
 const MODE_COPY: Record<DataMode, ModeCopy> = {
@@ -73,7 +78,12 @@ const MODE_COPY: Record<DataMode, ModeCopy> = {
     markClass: "border-ink",
     badgeClass: "text-ink",
     title: "Engine API unreachable — showing recorded output of the real engine for this exact configuration.",
-    footer: (on) => `Recorded engine output (recorded ${on ?? "?"}) — the engine API is offline`,
+    footer: (on) => (
+      <>
+        Recorded engine output (recorded <span className="whitespace-nowrap">{on ?? "?"}</span>) — the engine API
+        is offline
+      </>
+    ),
     noResult: "The recording holds no result.",
     heroSpace: RESULT_HEIGHT,
     figureEmpty: "Nothing to plot.",
@@ -304,17 +314,33 @@ export default function Home() {
           <p className="notice" data-testid="offline-notice">
             {mode === "recorded" ? (
               <>
-                The engine API is unreachable (or this deployment has none configured). This page shows a{" "}
+                {NO_ENGINE
+                  ? "This hosted demo has no engine behind it. It shows a "
+                  : "The engine API is unreachable. This page shows a "}
                 <strong className="font-semibold">recorded snapshot</strong> of the real engine&apos;s output for
-                exactly this configuration, recorded {result?.recordedOn} by{" "}
+                exactly this configuration, recorded <span className="whitespace-nowrap">{result?.recordedOn}</span> by{" "}
                 <code>scripts/record_engine_snapshot.py</code> on the API&apos;s synthetic {symbol} feed. Change any
-                setting and there is no recording — start the API (<code>make api</code>) for live runs.
+                setting and there is no recording —{" "}
+                {NO_ENGINE ? (
+                  <>
+                    to compute other runs, clone the repo and run <code>docker compose up --build</code>.
+                  </>
+                ) : (
+                  <>
+                    start the API (<code>make api</code>) for live runs.
+                  </>
+                )}
+              </>
+            ) : NO_ENGINE ? (
+              <>
+                This hosted demo has no engine behind it, only its recordings of the default settings, one per
+                strategy, so this configuration has no result — nothing is simulated in the browser. To compute it,
+                clone the repo and run <code>docker compose up --build</code>.
               </>
             ) : (
               <>
-                The engine API is unreachable (or not configured) and this configuration has no recorded snapshot, so
-                there are no results — nothing is simulated in the browser. Start the API (<code>make api</code>) to
-                run it.
+                The engine API is unreachable and this configuration has no recorded snapshot, so there are no
+                results — nothing is simulated in the browser. Start the API (<code>make api</code>) to run it.
               </>
             )}
           </p>
@@ -344,8 +370,13 @@ export default function Home() {
         </Entry>
 
         <Entry label="Setup" title="Backtest configuration">
-          <form className="grid grid-cols-2 gap-x-3 gap-y-2.5 md:grid-cols-7" onSubmit={(e) => e.preventDefault()}>
-            <div className="col-span-2">
+          {/* The two date columns are wider than the rest: Firefox spaces its date
+              text ("01 / 01 / 2020") and ran the year into its calendar icon. */}
+          <form
+            className="grid grid-cols-2 gap-x-3 gap-y-2.5 md:grid-cols-[2fr_1fr_1fr_1.2fr_1.2fr_1fr]"
+            onSubmit={(e) => e.preventDefault()}
+          >
+            <div className="col-span-2 md:col-span-1">
               <label htmlFor="strategy" className="field-label">
                 Strategy
               </label>

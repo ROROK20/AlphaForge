@@ -50,9 +50,10 @@ export const metadata: Metadata = {
     title: OG_TITLE,
     description: OG_DESCRIPTION,
     type: "website",
-    url: "https://github.com/ROROK20/AlphaForge",
     siteName: "AlphaForge",
-    ...(SITE_URL ? { images: [OG_IMAGE] } : {}),
+    // og:url names the page being shared: this site, resolved against metadataBase
+    // like the image. Without a site URL there is none to name, so it is left out.
+    ...(SITE_URL ? { url: "/", images: [OG_IMAGE] } : {}),
   },
   twitter: {
     card: SITE_URL ? "summary_large_image" : "summary",

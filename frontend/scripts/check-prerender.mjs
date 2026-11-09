@@ -6,6 +6,8 @@
 //    browser receives points at localhost (the visitor's own machine): not
 //    the prerendered HTML (metadata / Open Graph links) and not the client JS.
 //    With those variables set, the check confirms they were baked in instead.
+// 3. og:url is the site's own URL when NEXT_PUBLIC_SITE_URL is set, and absent
+//    when it is not: a shared link must name this page, not the repository.
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
@@ -31,6 +33,14 @@ const LOCALHOST_URL = /https?:\/\/localhost[:/]/;
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 if (!siteUrl && LOCALHOST_URL.test(html)) failures.push("prerendered HTML links to localhost");
+// og:url is the shared page's own address: this site, never the source repository.
+const ogUrl = html.match(/<meta property="og:url" content="([^"]*)"/)?.[1];
+const bare = (url) => url?.trim().replace(/\/+$/, "");
+if (siteUrl) {
+  if (bare(ogUrl) !== bare(siteUrl)) failures.push(`og:url is ${ogUrl ?? "missing"}, not ${siteUrl}`);
+} else if (ogUrl !== undefined) {
+  failures.push(`og:url is ${ogUrl} on a build with no NEXT_PUBLIC_SITE_URL`);
+}
 if (!apiUrl) {
   const leaking = chunks.filter((f) => LOCALHOST_URL.test(readFileSync(f, "utf8")));
   if (leaking.length) failures.push(`client JS calls localhost: ${leaking.map((f) => f.slice(root.length)).join(", ")}`);

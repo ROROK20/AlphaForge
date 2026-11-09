@@ -508,6 +508,32 @@ try {
     });
   }
 
+  // On a phone every form field is at least 16px, since iOS Safari zooms the page
+  // into a focused field set smaller, and the selects stand as tall as the inputs.
+  await check("form fields at 390px: 16px text, every field the same height", async () => {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const p = await ctx.newPage();
+    try {
+      await p.goto(UI, { waitUntil: "domcontentloaded", timeout: 90000 });
+      await p.getByText("Live engine", { exact: true }).first().waitFor({ timeout: 45000 });
+      const fields = await p.evaluate(() =>
+        [...document.querySelectorAll(".field")].map((el) => ({
+          id: el.id,
+          px: parseFloat(getComputedStyle(el).fontSize),
+          h: Math.round(el.getBoundingClientRect().height),
+        })),
+      );
+      if (fields.length < 6) throw new Error(`found ${fields.length} fields`);
+      const small = fields.filter((f) => f.px < 16);
+      if (small.length) throw new Error(`under 16px: ${small.map((f) => `${f.id} ${f.px}px`).join(", ")}`);
+      if (new Set(fields.map((f) => f.h)).size !== 1) {
+        throw new Error(`heights differ: ${fields.map((f) => `${f.id} ${f.h}px`).join(", ")}`);
+      }
+    } finally {
+      await ctx.close();
+    }
+  });
+
   await check("0 console errors", () => {
     if (consoleErrors.length) throw new Error(`${consoleErrors.length}: ${consoleErrors.slice(0, 3).join(" | ")}`);
   });
@@ -565,6 +591,32 @@ try {
       if (await p.getByText("Live engine", { exact: true }).count()) throw new Error('the card state claims "Live engine"');
     } finally {
       await card.close();
+    }
+  });
+  // A phone, not a narrow desktop window: the hyphen break shows with mobile layout.
+  await check("on a 390px phone the footer's recorded date stays on one line", async () => {
+    const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await phone.route((url) => new URL(url).port === String(API_PORT), (route) => route.abort());
+    const p = await phone.newPage();
+    try {
+      await p.goto(UI, { waitUntil: "domcontentloaded", timeout: 90000 });
+      await p.getByText("Recorded snapshot", { exact: true }).first().waitFor({ timeout: 45000 });
+      const lines = await p.evaluate(() => {
+        const footer = document.querySelector('[data-testid="mode-footer"]');
+        const walker = document.createTreeWalker(footer, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const i = node.textContent.search(/\d{4}-\d{2}-\d{2}/);
+          if (i < 0) continue;
+          const range = document.createRange();
+          range.setStart(node, i);
+          range.setEnd(node, i + 10);
+          return new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size;
+        }
+        return 0;
+      });
+      if (lines !== 1) throw new Error(`the recorded date spans ${lines} lines`);
+    } finally {
+      await phone.close();
     }
   });
   await check("offline trade log's net P&L reconciles with Final Equity - capital", async () => {

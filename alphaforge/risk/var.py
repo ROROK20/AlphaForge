@@ -63,7 +63,9 @@ def historical_var(
     confidence : float
         Confidence level.
     horizon : float
-        Horizon in bars of *returns*. A longer horizon is approximated by scaling.
+        Horizon in bars of *returns*. A longer horizon scales the 1-bar VaR by
+        ``sqrt(horizon)`` (square-root-of-time; the drift is scaled by
+        ``sqrt(horizon)`` too, not by ``horizon``).
     portfolio_value : float
         Portfolio NAV for dollar-denominated output.
 
@@ -72,10 +74,11 @@ def historical_var(
     float
         VaR as a positive loss magnitude.
     """
-    # Compute the 1-day historical VaR from raw returns, then scale the VaR
-    # MAGNITUDE by sqrt(horizon). Scaling the returns before taking the
-    # percentile would wrongly scale the mean too (sqrt-of-time applies to
-    # the loss quantile, not the drift).
+    # Square-root-of-time rule: the horizon's VaR is the 1-bar loss quantile
+    # times sqrt(horizon), which assumes i.i.d. returns. The quantile includes
+    # the drift, so the drift is scaled by sqrt(horizon) too, not by horizon.
+    # (Scaling the returns before taking the percentile gives the same number:
+    # a percentile scales with its data.)
     var_1d = -float(np.percentile(returns.dropna(), (1 - confidence) * 100))
     var = var_1d * np.sqrt(horizon)
     return float(var * portfolio_value)

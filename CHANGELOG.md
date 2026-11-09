@@ -29,6 +29,14 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **`DataFetcher.fetch_ohlcv` documents its end date.** yfinance excludes `end` and
   the Alpha Vantage fallback includes a bar dated `end`; neither was written down.
   The docstring and the usage guide now say so. Behaviour is unchanged.
+- **`KellyCriterion` refuses an average win or loss it cannot size from.** A negative
+  `avg_win` sized a full-Kelly bet of 86% where 30% is right, `avg_win=0` divided by
+  zero, NaN read as no bet, and a loss given with its sign (`avg_loss=-0.03`) was
+  floored to almost nothing, giving 58%. Each now raises `ValueError`;
+  `avg_loss=0` (no losing trades) is still allowed.
+- **Historical VaR's horizon scaling is described correctly.** A code comment said
+  the square-root-of-time rule left the drift unscaled; it scales it by
+  `sqrt(horizon)`. The figures do not change.
 
 ## [0.1.0] — first public release
 

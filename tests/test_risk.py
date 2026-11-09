@@ -43,6 +43,24 @@ class TestKellyCriterion:
         k = KellyCriterion(win_rate=0.6, avg_win=0.05, avg_loss=0.03)
         assert "KellyCriterion" in repr(k)
 
+    @pytest.mark.parametrize("avg_win", [-0.045, 0.0, float("nan"), float("inf")])
+    def test_avg_win_must_be_a_positive_return(self, avg_win):
+        """A negative average win sized a full-Kelly bet of 86% where 30% is right
+        (win rate 0.58, loss 0.03), zero divided by zero, and NaN read as 0."""
+        with pytest.raises(ValueError, match="avg_win"):
+            KellyCriterion(win_rate=0.58, avg_win=avg_win, avg_loss=0.03)
+
+    @pytest.mark.parametrize("avg_loss", [-0.03, float("nan"), float("inf")])
+    def test_avg_loss_must_be_a_non_negative_magnitude(self, avg_loss):
+        """A loss given with its sign (-0.03) was floored to 1e-9, as if the strategy
+        never lost: full Kelly 58% instead of 30%."""
+        with pytest.raises(ValueError, match="avg_loss"):
+            KellyCriterion(win_rate=0.58, avg_win=0.045, avg_loss=avg_loss)
+
+    def test_no_losses_still_sizes_at_the_win_rate(self):
+        """avg_loss=0 (no losing trades) stays allowed: full Kelly tends to p."""
+        assert KellyCriterion(win_rate=0.58, avg_win=0.045, avg_loss=0.0).full_kelly == pytest.approx(0.58)
+
 
 class TestFixedFractional:
     def test_size_formula(self):
@@ -271,3 +289,12 @@ def test_a_stronger_drift_lowers_monte_carlo_var():
     high, _ = monte_carlo_var(_returns_with(0.01, 0.02), n_simulations=50_000, seed=1)
     assert low - high > 0.05
 
+
+def test_historical_var_is_the_square_root_of_time_rule():
+    """Pins what var.py's comment says: the horizon's VaR is sqrt(h) times the
+    1-bar quantile, drift included, which is also the quantile of sqrt(h)-scaled
+    returns. Anyone replacing the rule must change the comment with it."""
+    r = pd.Series(np.random.default_rng(5).normal(0.002, 0.02, 500))
+    one, ten = historical_var(r, horizon=1), historical_var(r, horizon=10)
+    assert ten == pytest.approx(np.sqrt(10) * one, rel=1e-12)
+    assert ten == pytest.approx(historical_var(r * np.sqrt(10), horizon=1), rel=1e-12)

@@ -34,9 +34,10 @@ class KellyCriterion(PositionSizer):
     win_rate : float
         Historical probability of a winning trade.
     avg_win : float
-        Average win return (e.g. 0.05 for 5%).
+        Average win return, positive (e.g. 0.05 for 5%). ``ValueError`` otherwise.
     avg_loss : float
-        Average loss return (positive magnitude, e.g. 0.03 for 3%).
+        Average loss return as a magnitude, ``>= 0`` (e.g. 0.03 for 3%);
+        ``ValueError`` for a negative value. 0 means no losing trades.
     fraction : float
         Fractional Kelly multiplier (default 0.25 = quarter-Kelly).
     max_position : float
@@ -53,6 +54,14 @@ class KellyCriterion(PositionSizer):
     ) -> None:
         if not 0 < win_rate < 1:
             raise ValueError(f"win_rate must be in (0, 1), got {win_rate}")
+        # A negative or zero average win has no Kelly bet: b = avg_win/avg_loss
+        # would be negative (sizing UP as wins lose money) or zero (dividing by it).
+        if not (math.isfinite(avg_win) and avg_win > 0):
+            raise ValueError(f"avg_win must be a positive, finite return (0.05 for 5%), got {avg_win}")
+        # A loss is a magnitude: -0.03 would be floored to 1e-9 below, as if the
+        # strategy never lost. 0 (no losing trades) is allowed.
+        if not (math.isfinite(avg_loss) and avg_loss >= 0):
+            raise ValueError(f"avg_loss must be a finite magnitude >= 0 (0.03 for a 3% loss), got {avg_loss}")
         self.win_rate = win_rate
         self.avg_win = avg_win
         self.avg_loss = max(avg_loss, 1e-9)

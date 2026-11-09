@@ -350,3 +350,53 @@ def test_yfinance_prices_are_the_split_and_dividend_adjusted_ones(monkeypatch):
     assert df["Open"].iloc[0] == 100.0 and df["High"].iloc[0] == 100.5
     assert df["Close"].pct_change().iloc[1] == 0.0, "a split is not a -50% return"
 
+
+
+class TestEndDateConvention:
+    """The two sources disagree on ``end``: yfinance excludes it, and the Alpha Vantage
+    fallback keeps a bar dated ``end``. Neither is adjusted here; the docstring says
+    which is which."""
+
+    def test_yfinance_gets_end_as_given(self, monkeypatch):
+        from alphaforge.data import fetcher as fetcher_module
+        from alphaforge.data.fetcher import DataFetcher
+
+        seen = {}
+
+        class FakeTicker:
+            def __init__(self, symbol):
+                pass
+
+            def history(self, start, end, interval, auto_adjust):
+                seen.update(start=start, end=end)
+                return pd.DataFrame()
+
+        monkeypatch.setattr(fetcher_module.yf, "Ticker", FakeTicker)
+        DataFetcher(use_cache=False).fetch_ohlcv("AAPL", "2024-01-02", "2024-01-31")
+        assert seen == {"start": "2024-01-02", "end": "2024-01-31"}
+
+    def test_alpha_vantage_keeps_a_bar_dated_end(self):
+        import json
+        import requests
+
+        bar = {"1. open": "10", "2. high": "11", "3. low": "9", "4. close": "10",
+               "5. adjusted close": "10", "6. volume": "100"}
+        payload = {"Time Series (Daily)": {d: bar for d in ("2023-12-29", "2024-01-02", "2024-01-31", "2024-02-01")}}
+
+        def ok(adapter, request, **kwargs):
+            resp = requests.Response()
+            resp.status_code = 200
+            resp._content = json.dumps(payload).encode()
+            resp.url = request.url
+            resp.request = request
+            return resp
+
+        df = TestAlphaVantageFallback._fetch(TestAlphaVantageFallback.KEY, ok)  # 2024-01-01 .. 2024-01-31
+        assert [d.strftime("%Y-%m-%d") for d in df.index] == ["2024-01-02", "2024-01-31"]
+
+    def test_the_docstring_states_both_conventions(self):
+        from alphaforge.data.fetcher import DataFetcher
+
+        doc = " ".join(DataFetcher.fetch_ohlcv.__doc__.split())
+        assert "yfinance excludes it" in doc
+        assert "Alpha Vantage fallback includes a bar dated ``end``" in doc

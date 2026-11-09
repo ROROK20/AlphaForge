@@ -26,6 +26,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **The install docs name the macOS prerequisite.** XGBoost's macOS wheels load the
   OpenMP runtime from Homebrew and do not ship it, so a Mac without `brew install
   libomp` cannot load XGBoost. README, CONTRIBUTING and the usage guide now say so.
+- **`DataFetcher.fetch_ohlcv` documents its end date.** yfinance excludes `end` and
+  the Alpha Vantage fallback includes a bar dated `end`; neither was written down.
+  The docstring and the usage guide now say so. Behaviour is unchanged.
 
 ## [0.1.0] — first public release
 

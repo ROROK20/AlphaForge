@@ -12,6 +12,13 @@ component-level overview, see [architecture.md](architecture.md).
 > close applied as a ratio to open/high/low; its `Volume` stays as traded).
 > The Alpha Vantage fallback reads `ALPHA_VANTAGE_KEY` and never writes the key
 > to logs.
+>
+> **The end date depends on the source.** `fetch_ohlcv(symbol, start, end)`
+> includes a bar dated `start` from both sources, but yfinance excludes `end`
+> (its last bar is the last trading day before it) while the Alpha Vantage
+> fallback includes a bar dated `end`. To include a given day from yfinance,
+> pass the day after it: `fetch_ohlcv("AAPL", "2024-01-02", "2024-01-05")`
+> returns 2 to 4 January.
 
 ---
 

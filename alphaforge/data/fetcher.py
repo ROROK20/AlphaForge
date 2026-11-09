@@ -3,6 +3,8 @@ DataFetcher — OHLCV data acquisition with caching.
 
 Primary source: yfinance.
 Optional fallback: Alpha Vantage (set ALPHA_VANTAGE_KEY env var).
+The end date is exclusive on yfinance and inclusive on Alpha Vantage: see
+``DataFetcher.fetch_ohlcv``.
 Cache: Parquet files in ~/.alphaforge/cache/ keyed by symbol+interval+date range.
 """
 
@@ -94,9 +96,14 @@ class DataFetcher:
         symbol : str
             Ticker symbol, e.g. "AAPL".
         start : str
-            Start date in ISO format "YYYY-MM-DD".
+            Start date in ISO format "YYYY-MM-DD". A bar dated ``start`` is
+            included by both sources.
         end : str
-            End date in ISO format "YYYY-MM-DD".
+            End date in ISO format "YYYY-MM-DD". The two sources disagree on
+            this day: yfinance excludes it, so its last bar is the last trading
+            day before ``end``, while the Alpha Vantage fallback includes a bar
+            dated ``end``. To include a given day from yfinance, pass the day
+            after it.
         interval : str
             Data frequency: "1d", "1wk", "1mo", or intraday "1h", "5m", etc.
 
@@ -157,6 +164,7 @@ class DataFetcher:
     ) -> Optional[pd.DataFrame]:
         try:
             ticker = yf.Ticker(symbol)
+            # yfinance treats `end` as exclusive: a bar dated `end` is not returned.
             df = ticker.history(start=start, end=end, interval=interval, auto_adjust=True)
             if df.empty:
                 return None
@@ -229,7 +237,8 @@ class DataFetcher:
                 )
 
             df = pd.DataFrame(records).set_index("Date").sort_index()
-            # Filter to requested date range
+            # Label slicing keeps both ends, so unlike yfinance a bar dated `end`
+            # is included (fetch_ohlcv documents the difference).
             df = df.loc[start:end]
             return df
 

@@ -230,3 +230,17 @@ def test_every_test_the_readme_names_exists():
 def test_the_readme_names_the_browser_install_the_smoke_test_needs():
     readme = (Path(__file__).parent.parent / "README.md").read_text()
     assert "npx playwright install chromium" in readme
+
+
+def test_the_install_docs_name_the_openmp_runtime_xgboost_needs_on_macos():
+    """xgboost's macOS wheels link libomp from Homebrew and do not ship it, so on a Mac
+    without it the first XGBoost model fails to load the library. While xgboost is a
+    runtime dependency, every install section must say `brew install libomp`."""
+    assert "xgboost" in {canonicalize_name(r.name) for r in _declared()}
+    readme = (ROOT / "README.md").read_text()
+    install = readme.split("\n## Installation", 1)[1].split("\n## ", 1)[0]
+    assert "brew install libomp" in install, "README Installation"
+    contributing = (ROOT / "CONTRIBUTING.md").read_text()
+    assert "brew install libomp" in contributing.split("\n## Setup", 1)[0], "CONTRIBUTING Prerequisites"
+    usage = (ROOT / "docs" / "usage.md").read_text()
+    assert "brew install libomp" in usage.split("\n## Installation", 1)[1].split("\n## ", 1)[0], "usage Installation"

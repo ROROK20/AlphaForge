@@ -18,6 +18,9 @@ By participating in this project, you agree to abide by our
   pandas 3.0, numpy 2.4, scipy 1.17, scikit-learn 1.8 — require 3.11)
 - **pip** and a virtual environment tool (`venv` is fine)
 - **Node 18+** and **npm** — only required if you work on the web frontend
+- **macOS only: `brew install libomp`** — XGBoost's macOS wheels load the OpenMP
+  runtime from Homebrew and do not ship it; without it the XGBoost tests cannot
+  load the library
 - **git**
 
 ---

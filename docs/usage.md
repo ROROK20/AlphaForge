@@ -42,6 +42,9 @@ pip install -e ".[live]"    # optional: Alpaca paper-order client
 pip install -e ".[dev]"     # optional: tests + jupyter
 ```
 
+On macOS, run `brew install libomp` first: XGBoost's macOS wheels load the
+OpenMP runtime from Homebrew and do not ship it.
+
 ---
 
 ## Quick Start

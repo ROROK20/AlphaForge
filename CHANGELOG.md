@@ -23,6 +23,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   and nothing said so. It now prints the window and its number of returns, names the
   ticker whose history starts latest or ends earliest when that cut the others, and
   counts dates left out for a missing price.
+- **The install docs name the macOS prerequisite.** XGBoost's macOS wheels load the
+  OpenMP runtime from Homebrew and do not ship it, so a Mac without `brew install
+  libomp` cannot load XGBoost. README, CONTRIBUTING and the usage guide now say so.
 
 ## [0.1.0] — first public release
 

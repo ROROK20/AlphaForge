@@ -244,6 +244,11 @@ pip install -e ".[torch]"
 pip install -e ".[live]"
 ```
 
+**macOS:** run `brew install libomp` first. XGBoost's macOS wheels load the OpenMP
+runtime from Homebrew and do not ship it, so without it the first XGBoost model
+fails with `XGBoost Library (libxgboost.dylib) could not be loaded` (checked
+2026-11-09 on the xgboost 3.2.0 and 3.4.1 wheels for Apple silicon).
+
 ---
 
 ## Quick Start
@@ -760,11 +765,11 @@ tests/test_backtest.py::TestBacktestEngine::test_returns_backtest_result PASSED
 tests/test_backtest.py::TestBacktestEngine::test_equity_curve_length PASSED
 tests/test_metrics.py::TestSharpRatio::test_sharpe_known_value PASSED
 ...
-711 passed
+712 passed
 ```
 <sub>Count verified 2026-11-09 (Python 3.12). Needs `pip install -e ".[dev,torch]"` — with
 `.[dev]` alone the fifteen tests that need torch skip (it is its own extra), giving
-696 passed / 15 skipped.</sub>
+697 passed / 15 skipped.</sub>
 
 ### Live-fire smoke test
 

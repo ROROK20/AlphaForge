@@ -273,6 +273,47 @@ def test_optimize_prints_that_its_result_is_in_sample_and_warns_on_a_corner():
     assert "UP takes 100.0%" in text
 
 
+def test_optimize_says_which_window_it_used_when_a_ticker_is_younger():
+    """Aligning the tickers keeps only the dates every one of them has, so a young
+    ticker cuts every other asset to its own history. The command must print the
+    window and the number of returns it actually used, and name the ticker that cut
+    it, instead of reporting statistics for a window nobody asked for."""
+    old = make_ohlcv(300, seed=1)
+    young = make_ohlcv(300, seed=2).iloc[200:]
+    with patch("alphaforge.data.fetcher.DataFetcher") as fetcher_cls:
+        fetcher_cls.return_value.fetch_ohlcv.side_effect = lambda sym, s, e: old if sym == "OLD" else young
+        result = CliRunner().invoke(optimize, ["--symbols", "OLD,YOUNG", "--objective", "min_volatility"])
+    assert result.exit_code == 0, result.output
+    text = " ".join(result.output.split())
+    first, last = young.index[0], young.index[-1]
+    assert f"{first:%Y-%m-%d} → {last:%Y-%m-%d}" in text
+    assert "99 daily returns" in text
+    assert f"YOUNG's prices start {first:%Y-%m-%d}" in text
+
+
+def test_optimize_says_when_a_ticker_ends_early_or_misses_dates():
+    full = make_ohlcv(300, seed=1)
+    short = make_ohlcv(300, seed=2).iloc[:250].drop(make_ohlcv(300).index[[100, 101, 102]])
+    with patch("alphaforge.data.fetcher.DataFetcher") as fetcher_cls:
+        fetcher_cls.return_value.fetch_ohlcv.side_effect = lambda sym, s, e: full if sym == "FULL" else short
+        result = CliRunner().invoke(optimize, ["--symbols", "FULL,SHORT", "--objective", "min_volatility"])
+    assert result.exit_code == 0, result.output
+    text = " ".join(result.output.split())
+    assert f"SHORT's prices end {short.index[-1]:%Y-%m-%d}" in text
+    assert "3 dates inside the window are left out" in text
+    assert "246 daily returns" in text
+
+
+def test_optimize_names_no_ticker_when_none_cut_the_window():
+    with patch("alphaforge.data.fetcher.DataFetcher") as fetcher_cls:
+        fetcher_cls.return_value.fetch_ohlcv.side_effect = lambda sym, s, e: make_ohlcv(300, seed=len(sym))
+        result = CliRunner().invoke(optimize, ["--symbols", "AAPL,GOOGL", "--objective", "min_volatility"])
+    assert result.exit_code == 0, result.output
+    text = " ".join(result.output.split())
+    assert "299 daily returns" in text
+    assert "prices start" not in text and "prices end" not in text
+
+
 def test_optimize_refuses_max_sharpe_when_nothing_beats_the_risk_free_rate():
     """Two losing assets: the default objective has no meaningful answer, so the
     command says why and exits 1 instead of printing a Sharpe ratio."""

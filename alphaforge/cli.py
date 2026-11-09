@@ -142,8 +142,11 @@ def optimize(symbols: str, start: str, end: str | None, objective: str):
         console.print("[red]Need at least 2 symbols with valid data.[/red]")
         sys.exit(1)
 
+    # Only the dates every symbol has a price on are used, so a young ticker cuts
+    # every other asset to its history. Say which window that left.
     prices = pd.DataFrame(price_data).dropna()
     returns = prices.pct_change().dropna()
+    _print_window(price_data, prices, len(returns))
 
     with console.status(f"[bold green]Optimizing ({objective})…"):
         try:
@@ -225,6 +228,36 @@ def _build_signal(strategy: str):
         "macd": lambda: MACDSignal(),
     }
     return builders[strategy]()
+
+
+def _print_window(price_data: dict[str, pd.Series], shared: pd.DataFrame, n_returns: int) -> None:
+    """Print the dates ``optimize`` used: those on which every symbol has a price.
+
+    Names the symbol whose history starts latest or ends earliest when it cut the
+    others short, and counts dates inside the window dropped for a missing price.
+    """
+    if shared.empty:
+        console.print("[yellow]The symbols have no date with a price for all of them.[/yellow]")
+        return
+    first, last = shared.index[0], shared.index[-1]
+    notes = [f"Window: {first:%Y-%m-%d} → {last:%Y-%m-%d}, {n_returns} daily returns, "
+             "on the dates every symbol has a price for."]
+    starts = {sym: s.dropna().index[0] for sym, s in price_data.items()}
+    ends = {sym: s.dropna().index[-1] for sym, s in price_data.items()}
+    latest_start, earliest_end = max(starts.values()), min(ends.values())
+    if min(starts.values()) < latest_start:
+        late = ", ".join(f"{escape(sym)}'s prices start {latest_start:%Y-%m-%d}"
+                         for sym, start in starts.items() if start == latest_start)
+        notes.append(f"{late}: earlier dates of the other symbols are not used.")
+    if max(ends.values()) > earliest_end:
+        early = ", ".join(f"{escape(sym)}'s prices end {earliest_end:%Y-%m-%d}"
+                          for sym, end in ends.items() if end == earliest_end)
+        notes.append(f"{early}: later dates of the other symbols are not used.")
+    gaps = len(pd.DataFrame(price_data).loc[first:last]) - len(shared)
+    if gaps:
+        notes.append(f"{gaps} dates inside the window are left out because a symbol "
+                     "has no price on them.")
+    console.print(f"[dim]{' '.join(notes)}[/dim]")
 
 
 def _refuse(reason: object) -> None:

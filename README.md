@@ -342,7 +342,8 @@ alphaforge backtest --strategy sma_crossover --symbol AAPL --start 2020-01-01 --
 #  money. A FRESH fetch drifts slightly: yfinance back-adjusts history on
 #  every dividend.)
 
-# Portfolio optimization across multiple assets
+# Portfolio optimization across multiple assets. Only the dates every ticker
+# has a price on are used, and the command prints that window first.
 alphaforge optimize --symbols AAPL,MSFT,GOOGL,AMZN --objective max_sharpe
 
 # VaR report
@@ -462,7 +463,8 @@ least `max(60, 2 × assets)` returns, the same floor as `/optimize`, and refuses
 `max_sharpe` when no portfolio it may hold beats the risk-free rate ([why](#portfolio-optimization));
 `alphaforge var` needs at least 60, the same as `/var`. On the CLI an unparseable
 `--start` or `--end` is a usage error, and `alphaforge optimize` refuses a ticker
-with no data rather than optimizing the others.
+with no data rather than optimizing the others, and prints the window the
+tickers share, naming any ticker whose history cut it short.
 
 ### Multi-asset backtest
 
@@ -758,11 +760,11 @@ tests/test_backtest.py::TestBacktestEngine::test_returns_backtest_result PASSED
 tests/test_backtest.py::TestBacktestEngine::test_equity_curve_length PASSED
 tests/test_metrics.py::TestSharpRatio::test_sharpe_known_value PASSED
 ...
-708 passed
+711 passed
 ```
 <sub>Count verified 2026-11-09 (Python 3.12). Needs `pip install -e ".[dev,torch]"` — with
 `.[dev]` alone the fifteen tests that need torch skip (it is its own extra), giving
-693 passed / 15 skipped.</sub>
+696 passed / 15 skipped.</sub>
 
 ### Live-fire smoke test
 

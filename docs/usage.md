@@ -89,6 +89,8 @@ alphaforge backtest -s macd -t TSLA --start 2021-01-01 --long-only
 # Markowitz portfolio optimization
 alphaforge optimize --symbols AAPL,MSFT,GOOGL,AMZN --objective max_sharpe
 # Objectives: max_sharpe | min_volatility | risk_parity | max_diversification | equal_weight
+# Only dates on which every ticker has a price are used: the command prints that
+# window and its number of returns, and names a ticker that cut it short.
 
 # Value-at-Risk report
 alphaforge var --symbol SPY --capital 1000000

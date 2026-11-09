@@ -13,8 +13,6 @@
     "check:prerender": "node scripts/check-prerender.mjs"
   },
   "dependencies": {
-    "clsx": "^2.1.1",
-    "lucide-react": "^0.408.0",
     "next": "^15.5.28",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

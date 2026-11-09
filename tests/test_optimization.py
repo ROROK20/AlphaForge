@@ -204,3 +204,52 @@ def test_max_diversification_beats_every_other_portfolio_on_its_own_ratio():
     for w in np.random.default_rng(5).dirichlet(np.ones(4), size=2000):
         assert _diversification_ratio(w, opt.cov) <= best + 1e-6
 
+
+
+def _daily(columns: dict[str, np.ndarray]) -> pd.DataFrame:
+    n = len(next(iter(columns.values())))
+    return pd.DataFrame(columns, index=pd.bdate_range("2020-01-01", periods=n))
+
+
+def _with_mean(noise: np.ndarray, daily_mean: float) -> np.ndarray:
+    return noise - noise.mean() + daily_mean
+
+
+def test_max_sharpe_is_refused_when_no_portfolio_beats_the_risk_free_rate():
+    """Both assets return about -10% a year, under the 2% risk-free rate, and WILD is
+    six times as volatile as CALM. Every Sharpe ratio is negative, so the largest
+    belongs to the most volatile mix: max_sharpe put 100% in WILD. The objective has
+    no meaningful answer here, so it is refused; min_volatility still answers."""
+    z = np.random.default_rng(0).standard_normal((500, 2))
+    returns = _daily({"CALM": _with_mean(z[:, 0] * 0.005, -0.0004),
+                      "WILD": _with_mean(z[:, 1] * 0.03, -0.0004)})
+    opt = MarkowitzOptimizer(returns)
+    with pytest.raises(ValueError, match="risk-free rate"):
+        opt.optimize("max_sharpe")
+    assert opt.optimize("min_volatility").weights["CALM"] > 0.9
+
+
+def test_max_sharpe_refusal_respects_the_weight_cap():
+    """A alone beats the risk-free rate, but a 50% cap forces half the book into B
+    and C, which lose money: no allowed portfolio beats it."""
+    z = np.random.default_rng(2).standard_normal((500, 3)) * 0.01
+    returns = _daily({"A": _with_mean(z[:, 0], 0.0004),
+                      "B": _with_mean(z[:, 1], -0.0012),
+                      "C": _with_mean(z[:, 2], -0.0012)})
+    assert MarkowitzOptimizer(returns).optimize("max_sharpe").sharpe > 0
+    with pytest.raises(ValueError, match="risk-free rate"):
+        MarkowitzOptimizer(returns, max_weight=0.5).optimize("max_sharpe")
+
+
+def test_max_sharpe_answers_when_a_long_short_book_beats_the_risk_free_rate():
+    """Every asset loses money, so long-only is refused. With shorting allowed, long A
+    and B against short C earns far more than 2% a year: that is a real maximum."""
+    z = np.random.default_rng(1).standard_normal((500, 3)) * 0.01
+    returns = _daily({"A": _with_mean(z[:, 0], -0.0001),
+                      "B": _with_mean(z[:, 1], -0.0001),
+                      "C": _with_mean(z[:, 2], -0.002)})
+    with pytest.raises(ValueError, match="risk-free rate"):
+        MarkowitzOptimizer(returns).optimize("max_sharpe")
+    result = MarkowitzOptimizer(returns, allow_short=True).optimize("max_sharpe")
+    assert result.sharpe > 0
+    assert result.weights["C"] < 0

@@ -876,13 +876,30 @@ def test_optimize_says_its_weights_are_in_sample():
 
 
 def test_optimize_warns_when_one_asset_takes_everything():
-    """100% XOM at Sharpe -2.49 must come with something to say about it."""
-    resp = client.post("/optimize", json={"symbols": ["TSLA", "XOM"], "startDate": "2024-01-01", "endDate": "2024-04-01"})
+    """100% GOOGL at Sharpe 4.41, fitted to one quarter, must come with something to
+    say about it. The figures are the README's."""
+    resp = client.post("/optimize", json={"symbols": ["GOOGL", "XOM"], "startDate": "2024-01-01", "endDate": "2024-04-01"})
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["weights"] == {"TSLA": 0.0, "XOM": 1.0}
-    assert "XOM takes 100.0%" in body["warning"]
+    assert body["weights"] == {"GOOGL": 1.0, "XOM": 0.0}
+    assert (body["expectedReturn"], round(body["sharpe"], 2)) == (0.8405, 4.41)
+    assert "GOOGL takes 100.0%" in body["warning"]
     assert "In-sample" in body["note"]
+
+
+def test_max_sharpe_is_refused_when_every_asset_loses_to_the_risk_free_rate():
+    """TSLA and XOM both lose money over this quarter, so every Sharpe ratio is
+    negative and the largest was the least diversified book: max_sharpe answered
+    100% XOM. It is a 400 now, with the reason; min_volatility still answers."""
+    window = {"symbols": ["TSLA", "XOM"], "startDate": "2024-01-01", "endDate": "2024-04-01"}
+    resp = client.post("/optimize", json=window)
+    assert resp.status_code == 400, resp.text
+    detail = resp.json()["detail"]
+    assert "2.00% risk-free rate" in detail and "-49.21% a year" in detail
+    assert "min_volatility" in detail
+    calm = client.post("/optimize", json={**window, "objective": "min_volatility"})
+    assert calm.status_code == 200, calm.text
+    assert calm.json()["weights"] == {"TSLA": 0.5209, "XOM": 0.4791}
 
 
 def test_a_diversified_optimum_carries_no_concentration_warning():

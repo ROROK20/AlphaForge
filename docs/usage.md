@@ -315,6 +315,12 @@ print(frontier[["expected_return", "volatility", "sharpe"]])
 The weights are in-sample: fitted to `returns`, and the figures are measured on
 the same `returns`. They describe that window and forecast nothing.
 
+`max_sharpe` raises `ValueError` when no portfolio within the weight limits has
+an expected return above `risk_free_rate`. Every Sharpe ratio is then negative,
+and maximising it would pick the most volatile portfolio; use `min_volatility`
+for the least risky one. With `allow_short=True` a long/short book that beats
+the rate counts, even when every asset on its own does not.
+
 ---
 
 ## Machine-Learning Signals

@@ -149,6 +149,17 @@ class MarkowitzOptimizer:
         Returns
         -------
         OptimizationResult
+
+        Raises
+        ------
+        ValueError
+            For an unknown objective, a solve that does not converge, and
+            'max_sharpe' when no portfolio within the weight limits has an
+            expected return above ``risk_free_rate``. Every Sharpe ratio is then
+            negative, and the largest belongs to the most volatile portfolio, so
+            the objective is refused rather than answered; 'min_volatility' still
+            answers. With ``allow_short`` a long/short book counts: the test is on
+            the best return the weight limits allow, not on each asset.
         """
         if objective == "equal_weight":
             return self._equal_weight()
@@ -226,7 +237,35 @@ class MarkowitzOptimizer:
             objective=objective,
         )
 
+    def _best_attainable_return(self) -> float | None:
+        """The highest expected return of any portfolio within the weight limits.
+
+        Maximising ``w @ mu`` subject to ``min_weight <= w_i <= max_weight`` and
+        ``sum(w) == 1`` is solved exactly by starting every weight at its floor and
+        handing the rest of the budget to the highest-return assets first. None when
+        no weights satisfy the limits (the solver then reports the failure).
+        """
+        lo, hi = self.min_weight, self.max_weight
+        if self.n * lo > 1 or self.n * hi < 1:
+            return None
+        weights = np.full(self.n, lo, dtype=float)
+        budget = 1.0 - weights.sum()
+        for i in np.argsort(-self.mu.values):
+            step = min(hi - lo, budget)
+            weights[i] += step
+            budget -= step
+        return float(weights @ self.mu.values)
+
     def _max_sharpe(self) -> OptimizationResult:
+        best = self._best_attainable_return()
+        if best is not None and best <= self.risk_free_rate:
+            raise ValueError(
+                f"max_sharpe has no answer for these returns: no portfolio within the "
+                f"weight limits earns more than the {self.risk_free_rate:.2%} risk-free "
+                f"rate (the best expected return they allow is {best:.2%} a year). Every "
+                "Sharpe ratio is negative, and the largest belongs to the most volatile "
+                "portfolio. Use min_volatility for the least risky one."
+            )
         bounds, constraints = self._bounds_and_constraints()
         x0 = np.ones(self.n) / self.n
 

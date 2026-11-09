@@ -273,6 +273,24 @@ def test_optimize_prints_that_its_result_is_in_sample_and_warns_on_a_corner():
     assert "UP takes 100.0%" in text
 
 
+def test_optimize_refuses_max_sharpe_when_nothing_beats_the_risk_free_rate():
+    """Two losing assets: the default objective has no meaningful answer, so the
+    command says why and exits 1 instead of printing a Sharpe ratio."""
+    def losing(seed):
+        frame = make_ohlcv(300, seed=seed)
+        frame["Close"] = 100 * np.exp(np.cumsum(np.random.default_rng(seed).normal(-0.002, 0.01, 300)))
+        return frame
+
+    with patch("alphaforge.data.fetcher.DataFetcher") as fetcher_cls:
+        fetcher_cls.return_value.fetch_ohlcv.side_effect = lambda sym, s, e: losing(len(sym))
+        result = CliRunner().invoke(optimize, ["--symbols", "AB,CDE"])
+        calm = CliRunner().invoke(optimize, ["--symbols", "AB,CDE", "--objective", "min_volatility"])
+    assert result.exit_code == 1, result.output
+    assert "risk-free rate" in " ".join(result.output.split())
+    assert "Sharpe Ratio" not in result.output
+    assert calm.exit_code == 0 and "Sharpe Ratio" in calm.output
+
+
 @pytest.mark.parametrize("command,args", [
     (backtest, ["--end", "garbage"]),
     (optimize, ["--symbols", "AAPL,MSFT", "--end", "garbage"]),

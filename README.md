@@ -458,8 +458,9 @@ not a close, and bars whose spacing does not say how many make a year (intraday,
 say) unless `periods_per_year` does. `run_multi` also
 refuses a signal that does not line up with the prices, assets that share no
 dates, and a negative weight under `long_only`. `MarkowitzOptimizer` needs at
-least `max(60, 2 × assets)` returns, the same floor as `/optimize`, and
-`alphaforge var` at least 60, the same as `/var`. On the CLI an unparseable
+least `max(60, 2 × assets)` returns, the same floor as `/optimize`, and refuses
+`max_sharpe` when no portfolio it may hold beats the risk-free rate ([why](#portfolio-optimization));
+`alphaforge var` needs at least 60, the same as `/var`. On the CLI an unparseable
 `--start` or `--end` is a usage error, and `alphaforge optimize` refuses a ticker
 with no data rather than optimizing the others.
 
@@ -666,9 +667,19 @@ print(report.round(0).to_string())
 `expected_return`, `volatility` and `sharpe` are measured on those same returns:
 they describe that window and forecast nothing. `POST /optimize` says so in its
 `note`, and adds a `warning` when one asset takes about 100% (at least 99%), as
-`alphaforge optimize` also prints: TSLA and XOM on the synthetic feed
-2024-01-01 → 2024-04-01 is 100% XOM at an expected return of −49.21% and Sharpe
-−2.49, fitted to one quarter's sample.
+`alphaforge optimize` also prints: GOOGL and XOM on the synthetic feed
+2024-01-01 → 2024-04-01 is 100% GOOGL at an expected return of +84.05% and Sharpe
+4.41, fitted to one quarter's sample (re-derived 2026-11-09).
+
+**`max_sharpe` needs a portfolio that beats the risk-free rate.** When no portfolio
+within the weight limits does, every Sharpe ratio is negative and the largest
+belongs to the most volatile portfolio, so the objective is refused rather than
+answered: `ValueError` from `MarkowitzOptimizer`, exit 1 from `alphaforge
+optimize`, `400` from `POST /optimize`. TSLA and XOM over that same quarter both
+lose money (the best a long-only book can expect is XOM's −49.21% a year), so
+`max_sharpe` is refused there, and `min_volatility` answers 52.09% TSLA / 47.91%
+XOM. With `allow_short=True` the test is on the best long/short book, not on
+each asset.
 
 ```python
 import pandas as pd
@@ -747,11 +758,11 @@ tests/test_backtest.py::TestBacktestEngine::test_returns_backtest_result PASSED
 tests/test_backtest.py::TestBacktestEngine::test_equity_curve_length PASSED
 tests/test_metrics.py::TestSharpRatio::test_sharpe_known_value PASSED
 ...
-703 passed
+708 passed
 ```
 <sub>Count verified 2026-11-09 (Python 3.12). Needs `pip install -e ".[dev,torch]"` — with
 `.[dev]` alone the fifteen tests that need torch skip (it is its own extra), giving
-688 passed / 15 skipped.</sub>
+693 passed / 15 skipped.</sub>
 
 ### Live-fire smoke test
 

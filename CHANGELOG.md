@@ -11,6 +11,13 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   n-th bar and stopped at 60 columns, so it could end before the run did: on the
   README's 1,006-bar AAPL command it stopped 61 bars early, at $94,322 against a
   final $88,388. It now samples evenly spaced bars from the first to the last.
+- **`max_sharpe` no longer rewards volatility.** When no portfolio within the weight
+  limits beats the risk-free rate, every Sharpe ratio is negative and the largest
+  belongs to the most volatile portfolio: two assets with the same −10% return got
+  100% in the one about six times as volatile. That case is now refused: `ValueError` from
+  `MarkowitzOptimizer`, exit 1 from `alphaforge optimize`, `400` from `/optimize`.
+  `min_volatility` still answers. The README's corner-solution example moved from
+  TSLA/XOM, which is now refused, to GOOGL/XOM.
 
 ## [0.1.0] — first public release
 

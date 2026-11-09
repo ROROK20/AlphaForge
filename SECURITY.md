@@ -10,7 +10,7 @@
 ## Reporting a Vulnerability
 
 Please do not report vulnerabilities through public issues, pull requests or
-discussions. Email **[rohan.s.khiani.vora@gmail.com](mailto:rohan.s.khiani.vora@gmail.com)**
+discussions. Email **[rskv.khiani@gmail.com](mailto:rskv.khiani@gmail.com)**
 or use GitHub's
 [private vulnerability reporting](https://github.com/ROROK20/AlphaForge/security/advisories/new).
 

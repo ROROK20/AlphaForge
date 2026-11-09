@@ -855,7 +855,7 @@ For major changes, please [open an issue](https://github.com/ROROK20/AlphaForge/
 
 Found a vulnerability? **Please do not open a public issue.** See our
 **[Security Policy](SECURITY.md)** and report it privately to
-[rohan.s.khiani.vora@gmail.com](mailto:rohan.s.khiani.vora@gmail.com).
+[rskv.khiani@gmail.com](mailto:rskv.khiani@gmail.com).
 
 ---
 

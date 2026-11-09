@@ -15,7 +15,7 @@ version = "0.1.0"
 description = "Python backtesting framework that keeps itself honest, with ML signals, portfolio optimization and a web dashboard"
 readme = "README.md"
 license = {text = "MIT"}
-authors = [{name = "Rohan Khiani", email = "rohan.s.khiani.vora@gmail.com"}]
+authors = [{name = "Rohan Khiani", email = "rskv.khiani@gmail.com"}]
 # 3.11, not 3.10: the tested floors below (pandas 3.0, numpy 2.4, scipy 1.17,
 # scikit-learn 1.8) all declare Requires-Python >=3.11, so a 3.10 interpreter
 # cannot install the set this project is actually tested against.

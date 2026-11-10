@@ -353,13 +353,17 @@ export default function Home() {
         </Entry>
 
         <Entry label="Setup" title="Backtest configuration">
-          {/* The two date columns are wider than the rest: Firefox spaces its date
-              text ("01 / 01 / 2020") and ran the year into its calendar icon. */}
+          {/* Six fields to a row only from 1180px. Narrower, the capital read
+              "10000" for 100000 and the selects cut their text at 14px, and a touch
+              screen's 16px needs more room still; from 768px they sit four to a row,
+              the strategy two wide. In the row of six the two date columns are wider
+              than the rest: Firefox spaces its date text ("01 / 01 / 2020") and ran
+              the year into its calendar icon. */}
           <form
-            className="grid grid-cols-2 gap-x-3 gap-y-2.5 md:grid-cols-[2fr_1fr_1fr_1.2fr_1.2fr_1fr]"
+            className="grid grid-cols-2 gap-x-3 gap-y-2.5 md:grid-cols-4 min-[1180px]:grid-cols-[2fr_1fr_1fr_1.2fr_1.2fr_1fr]"
             onSubmit={(e) => e.preventDefault()}
           >
-            <div className="col-span-2 md:col-span-1">
+            <div className="col-span-2 min-[1180px]:col-span-1">
               <label htmlFor="strategy" className="field-label">
                 Strategy
               </label>

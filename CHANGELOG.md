@@ -42,10 +42,15 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `sqrt(horizon)`. The figures do not change.
 - **Dashboard, shared links:** `og:url` named the GitHub repository; it is now the
   site's own URL (`NEXT_PUBLIC_SITE_URL`), and absent when that is unset.
-- **Dashboard, phones:** form fields are 16px below 640px wide, so iOS Safari no
-  longer zooms into a focused field, and every field is 36px tall: on an iPhone the
+- **Dashboard, phones:** form fields are 16px below 640px wide and on any touch
+  screen (an iPhone held sideways is 844px, an iPad 820px), so iOS Safari no longer
+  zooms into a focused field, and every field is 36px tall: on an iPhone the
   selects were 23px beside 36px inputs. The recorded date in the footer no longer
   breaks at a hyphen.
+- **Dashboard, form layout:** six fields did not fit one row below about 1080px
+  wide: at 820px the capital showed "10000" of 100000 and the fill select cut
+  "Same close" short. The form is now six to a row from 1180px, and four to a row
+  from 768px with the strategy two wide.
 - **Dashboard, trade log:** where the log is wider than the screen it scrolls
   sideways, and nothing said so. A line above it now does, shown only while the log
   is measured to overflow.

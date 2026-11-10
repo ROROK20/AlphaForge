@@ -160,8 +160,9 @@ a {
   color: var(--ink);
 }
 
-/* 16px on a phone: iOS Safari zooms the page into any focused field set smaller.
-   A fixed height, not a minimum: at 16px WebKit draws a date input 38px tall. */
+/* 16px on a phone and on any touch screen: iOS Safari zooms the page into any
+   focused field set smaller. A fixed height, not a minimum: at 16px WebKit draws
+   a date input 38px tall. */
 .field {
   display: block;
   width: 100%;
@@ -178,6 +179,14 @@ a {
 @media (min-width: 640px) {
   .field {
     font-size: 0.875rem;
+  }
+}
+
+/* After the rule above, so it wins: an iPhone held sideways (844px) and an iPad
+   are wider than 640px, and Safari zooms into a 14px field there too. */
+@media (pointer: coarse) {
+  .field {
+    font-size: 1rem;
   }
 }
 

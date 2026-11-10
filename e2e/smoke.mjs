@@ -508,31 +508,37 @@ try {
     });
   }
 
-  // On a phone every form field is at least 16px, since iOS Safari zooms the page
-  // into a focused field set smaller, and the selects stand as tall as the inputs.
-  await check("form fields at 390px: 16px text, every field the same height", async () => {
-    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-    const p = await ctx.newPage();
-    try {
-      await p.goto(UI, { waitUntil: "domcontentloaded", timeout: 90000 });
-      await p.getByText("Live engine", { exact: true }).first().waitFor({ timeout: 45000 });
-      const fields = await p.evaluate(() =>
-        [...document.querySelectorAll(".field")].map((el) => ({
-          id: el.id,
-          px: parseFloat(getComputedStyle(el).fontSize),
-          h: Math.round(el.getBoundingClientRect().height),
-        })),
-      );
-      if (fields.length < 6) throw new Error(`found ${fields.length} fields`);
-      const small = fields.filter((f) => f.px < 16);
-      if (small.length) throw new Error(`under 16px: ${small.map((f) => `${f.id} ${f.px}px`).join(", ")}`);
-      if (new Set(fields.map((f) => f.h)).size !== 1) {
-        throw new Error(`heights differ: ${fields.map((f) => `${f.id} ${f.h}px`).join(", ")}`);
+  // On a touch screen every form field is at least 16px, since iOS Safari zooms the
+  // page into a focused field set smaller: on a phone, and, wider than 640px, on an
+  // iPhone held sideways and an iPad. The selects stand as tall as the inputs, and
+  // the page does not scroll sideways.
+  for (const [width, height] of [[390, 844], [844, 390], [820, 1180]]) {
+    await check(`form fields on a ${width}x${height} touch screen: 16px text, every field the same height`, async () => {
+      const ctx = await browser.newContext({ viewport: { width, height }, isMobile: true, hasTouch: true });
+      const p = await ctx.newPage();
+      try {
+        await p.goto(UI, { waitUntil: "domcontentloaded", timeout: 90000 });
+        await p.getByText("Live engine", { exact: true }).first().waitFor({ timeout: 45000 });
+        const { fields, sideways } = await p.evaluate(() => ({
+          fields: [...document.querySelectorAll("input, select, textarea")].map((el) => ({
+            id: el.id,
+            px: parseFloat(getComputedStyle(el).fontSize),
+            h: Math.round(el.getBoundingClientRect().height),
+          })),
+          sideways: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        }));
+        if (fields.length < 6) throw new Error(`found ${fields.length} fields`);
+        const small = fields.filter((f) => f.px < 16);
+        if (small.length) throw new Error(`under 16px: ${small.map((f) => `${f.id} ${f.px}px`).join(", ")}`);
+        if (new Set(fields.map((f) => f.h)).size !== 1) {
+          throw new Error(`heights differ: ${fields.map((f) => `${f.id} ${f.h}px`).join(", ")}`);
+        }
+        if (sideways > 0) throw new Error(`the page scrolls sideways by ${sideways}px`);
+      } finally {
+        await ctx.close();
       }
-    } finally {
-      await ctx.close();
-    }
-  });
+    });
+  }
 
   // The trade log is wider than a phone and scrolls sideways inside its box. A line
   // above it says so, and is there only while the log is measured to overflow.

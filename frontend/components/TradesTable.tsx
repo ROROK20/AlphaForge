@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import type { Trade } from "@/lib/types";
 import { largestLoss } from "@/lib/reading";
 import Entry from "@/components/Entry";
@@ -44,6 +45,23 @@ export default function TradesTable({ label, trades, equityPnl, emptyMessage }: 
   const netTotal = rows.reduce((s, t) => s + t.pnlNetAbs, 0);
   const worst = largestLoss(rows);
   const difference = equityPnl === undefined ? null : Math.abs(netTotal - equityPnl);
+
+  // The log scrolls sideways when its columns are wider than its box (on any
+  // phone held upright). The hint says so only while that is measured to be
+  // true: the box and the table are both watched, since rows can widen it.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrolls, setScrolls] = useState(false);
+  useEffect(() => {
+    const box = scrollRef.current;
+    if (!box) return;
+    const measure = () => setScrolls(box.scrollWidth > box.clientWidth);
+    const watch = new ResizeObserver(measure);
+    watch.observe(box);
+    if (box.firstElementChild) watch.observe(box.firstElementChild);
+    measure();
+    return () => watch.disconnect();
+  }, []);
+
   return (
     <Entry
       label={label}
@@ -83,7 +101,13 @@ export default function TradesTable({ label, trades, equityPnl, emptyMessage }: 
         )
       }
     >
+      {scrolls && (
+        <p data-scroll-hint className="caption mb-1.5">
+          Scroll the log sideways for every column →
+        </p>
+      )}
       <div
+        ref={scrollRef}
         className="table-scroll"
         role="region"
         aria-label="Trade log, scrolls sideways on a narrow screen"

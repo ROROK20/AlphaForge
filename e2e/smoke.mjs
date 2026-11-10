@@ -534,6 +534,40 @@ try {
     }
   });
 
+  // The trade log is wider than a phone and scrolls sideways inside its box. A line
+  // above it says so, and is there only while the log is measured to overflow.
+  for (const [width, phone] of [[375, true], [1440, false]]) {
+    await check(`trade log at ${width}px: the scroll hint shows ${phone ? "because the log overflows" : "nowhere, as the log fits"}`, async () => {
+      const ctx = await browser.newContext({ viewport: { width, height: 900 }, ...(phone ? { isMobile: true, hasTouch: true } : {}) });
+      const p = await ctx.newPage();
+      const state = () =>
+        p.evaluate(() => {
+          const box = document.querySelector(".table-scroll");
+          return { overflows: box.scrollWidth > box.clientWidth, hint: document.querySelector("[data-scroll-hint]") !== null };
+        });
+      try {
+        await p.goto(UI, { waitUntil: "domcontentloaded", timeout: 90000 });
+        await p.getByText("Live engine", { exact: true }).first().waitFor({ timeout: 45000 });
+        // The hint follows a measurement made after the page settles.
+        await p
+          .waitForFunction(
+            () => {
+              const box = document.querySelector(".table-scroll");
+              return (document.querySelector("[data-scroll-hint]") !== null) === box.scrollWidth > box.clientWidth;
+            },
+            null,
+            { timeout: 10000 },
+          )
+          .catch(() => {});
+        const s = await state();
+        if (s.overflows !== phone) throw new Error(`the log ${s.overflows ? "overflows" : "fits"} at ${width}px`);
+        if (s.hint !== s.overflows) throw new Error(`the hint is ${s.hint ? "shown" : "missing"} while the log ${s.overflows ? "overflows" : "fits"}`);
+      } finally {
+        await ctx.close();
+      }
+    });
+  }
+
   await check("0 console errors", () => {
     if (consoleErrors.length) throw new Error(`${consoleErrors.length}: ${consoleErrors.slice(0, 3).join(" | ")}`);
   });

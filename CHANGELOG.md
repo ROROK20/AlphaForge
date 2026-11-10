@@ -46,6 +46,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   longer zooms into a focused field, and every field is 36px tall: on an iPhone the
   selects were 23px beside 36px inputs. The recorded date in the footer no longer
   breaks at a hyphen.
+- **Dashboard, trade log:** where the log is wider than the screen it scrolls
+  sideways, and nothing said so. A line above it now does, shown only while the log
+  is measured to overflow.
 - **Dashboard, hosted demo:** with no engine API built in, the notices told visitors
   to start one (`make api`), which a visitor to the hosted page cannot do. They now
   say the hosted demo has only its recordings and how to run the stack locally. The

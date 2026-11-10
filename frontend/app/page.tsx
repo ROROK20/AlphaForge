@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect, type ReactNode } from "react";
 import type { BacktestParams, BacktestResult, Fill, Strategy } from "@/lib/types";
 import { API_URL, ApiRejected, loadRecordedSnapshot, runRealBacktest } from "@/lib/api";
+import { type DataMode, modeTitle, recordedBecause } from "@/lib/modes";
 import { benchmarkReturn, gapPhrase, maxDrawdownFromCurve, plainReturn } from "@/lib/reading";
 import Entry from "@/components/Entry";
 import StatsTable from "@/components/StatsTable";
@@ -10,26 +11,11 @@ import EquityChart from "@/components/EquityChart";
 import DrawdownChart from "@/components/DrawdownChart";
 import TradesTable from "@/components/TradesTable";
 
-/**
- * Where the numbers on screen come from. There is no in-browser engine.
- *
- * - loading:  connecting to the API; no results shown yet.
- * - live:     the response of a live POST /backtest.
- * - recorded: API unreachable, and this exact configuration has a recorded
- *             snapshot of real engine output (scripts/record_engine_snapshot.py).
- * - offline:  API unreachable and nothing recorded for this configuration;
- *             no results are shown.
- * - rejected: the API answered and refused the request (e.g. an end date in
- *             the future); its explanation is shown.
- */
-type DataMode = "loading" | "live" | "recorded" | "offline" | "rejected";
-
 interface ModeCopy {
   badge: string;
   /** The small square beside the badge: solid only when an engine just answered. */
   markClass: string;
   badgeClass: string;
-  title: string;
   footer: (recordedOn?: string) => ReactNode;
   /** The headline when there is no result to state, and any line under it. */
   noResult: string;
@@ -45,16 +31,17 @@ const RESULT_HEIGHT = "min-h-[12rem] md:min-h-[8.25rem]";
 
 // A production build with no NEXT_PUBLIC_API_URL has no engine to call: the hosted
 // demo. Its visitors cannot start one, so the offline notices tell them how to run
-// the stack themselves instead of naming a command for a server they do not have.
+// the stack themselves instead of naming a command for a server they do not have,
+// and the badge's tooltip and the footer (lib/modes.ts) do not call it unreachable.
 const NO_ENGINE = API_URL === null;
 
 // A TOTAL map over DataMode: adding a mode without its copy is a type error.
+// Each badge's tooltip is modeTitle() in lib/modes.ts, the same kind of map.
 const MODE_COPY: Record<DataMode, ModeCopy> = {
   loading: {
     badge: "Connecting…",
     markClass: "border-rule-strong",
     badgeClass: "text-ink-2",
-    title: "Connecting to the AlphaForge engine API.",
     footer: () => "Connecting to the AlphaForge engine…",
     noResult: "Connecting to the AlphaForge engine.",
     noResultDetail: "No figures appear until the engine, or its recording of this exact configuration, answers.",
@@ -66,7 +53,6 @@ const MODE_COPY: Record<DataMode, ModeCopy> = {
     badge: "Live engine",
     markClass: "border-plot bg-plot",
     badgeClass: "text-ink",
-    title: "Results computed just now by the AlphaForge engine API.",
     footer: () => "Live results from the AlphaForge engine",
     noResult: "The engine returned no result.",
     heroSpace: RESULT_HEIGHT,
@@ -77,11 +63,10 @@ const MODE_COPY: Record<DataMode, ModeCopy> = {
     badge: "Recorded snapshot",
     markClass: "border-ink",
     badgeClass: "text-ink",
-    title: "Engine API unreachable — showing recorded output of the real engine for this exact configuration.",
     footer: (on) => (
       <>
-        Recorded engine output (recorded <span className="whitespace-nowrap">{on ?? "?"}</span>) — the engine API
-        is offline
+        Recorded engine output (recorded <span className="whitespace-nowrap">{on ?? "?"}</span>) —{" "}
+        {recordedBecause(NO_ENGINE)}
       </>
     ),
     noResult: "The recording holds no result.",
@@ -93,7 +78,6 @@ const MODE_COPY: Record<DataMode, ModeCopy> = {
     badge: "Request rejected",
     markClass: "border-pen bg-pen",
     badgeClass: "text-pen",
-    title: "The engine API answered and refused this request — see the message below.",
     footer: () => "The engine rejected this request — no results",
     noResult: "The engine refused this request.",
     heroSpace: "",
@@ -104,7 +88,6 @@ const MODE_COPY: Record<DataMode, ModeCopy> = {
     badge: "Engine offline",
     markClass: "border-ink-3",
     badgeClass: "text-ink-2",
-    title: "Engine API unreachable and no recording exists for this configuration — no results.",
     footer: () => "Engine offline — no results (nothing is simulated in the browser)",
     noResult: "No result for this configuration.",
     heroSpace: "",
@@ -537,7 +520,7 @@ function ModeBadge({ mode }: { mode: DataMode }) {
   return (
     <span
       className={`flex items-center gap-1.5 text-sm font-medium ${copy.badgeClass}`}
-      title={copy.title}
+      title={modeTitle(mode, NO_ENGINE)}
       data-testid="mode-badge"
     >
       <span aria-hidden="true" className={`inline-block h-2.5 w-2.5 border-[1.5px] ${copy.markClass}`} />

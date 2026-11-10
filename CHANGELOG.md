@@ -48,7 +48,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   breaks at a hyphen.
 - **Dashboard, hosted demo:** with no engine API built in, the notices told visitors
   to start one (`make api`), which a visitor to the hosted page cannot do. They now
-  say the hosted demo has only its recordings and how to run the stack locally.
+  say the hosted demo has only its recordings and how to run the stack locally. The
+  badge's tooltip said "Engine API unreachable" and the footer that the API was
+  offline, which read as a fault; both now say it is the hosted demo on bundled data.
+  A build with an API configured that does not answer still says unreachable.
 - **Dashboard, Firefox:** the date fields are wider, so the year no longer runs into
   the calendar icon.
 

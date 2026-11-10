@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start -p 3001",
     "lint": "next lint",
-    "test": "node --test lib/urls.test.mjs",
+    "test": "node --test lib/urls.test.mjs lib/modes.test.mjs",
     "check:prerender": "node scripts/check-prerender.mjs"
   },
   "dependencies": {

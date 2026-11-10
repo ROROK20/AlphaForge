@@ -10,7 +10,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **`alphaforge backtest` plots the whole equity curve.** The ASCII curve kept every
   n-th bar and stopped at 60 columns, so it could end before the run did: on the
   README's 1,006-bar AAPL command it stopped 61 bars early, at $94,322 against a
-  final $88,388. It now samples evenly spaced bars from the first to the last.
+  final $88,388. Evenly spaced bars alone still skipped the bars between them, so a
+  one-bar spike or crash went undrawn while the axis printed its value. The first
+  and last columns are now the first and last bars, and each column between spans
+  its run of bars from low to high.
 - **`max_sharpe` no longer rewards volatility.** When no portfolio within the weight
   limits beats the risk-free rate, every Sharpe ratio is negative and the largest
   belongs to the most volatile portfolio: two assets with the same −10% return got

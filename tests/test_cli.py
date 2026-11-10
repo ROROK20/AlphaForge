@@ -244,6 +244,53 @@ def test_the_ascii_equity_curve_runs_from_the_first_bar_to_the_last(n):
     assert rows[-1][0] != " ", "the first bar is not plotted"
 
 
+@pytest.mark.parametrize("n, high_at, low_at", [(61, 59, None), (1006, 10, 500), (2348, 1, 2346)])
+def test_the_ascii_equity_curve_draws_a_one_bar_spike_between_plotted_bars(n, high_at, low_at):
+    """1,006 bars do not fit in 60 columns, and the plot drew every 17th bar: a
+    one-bar spike to the series' high on any other bar was not drawn at all, while
+    the axis above it still printed that high. Each column now spans its run of
+    bars from low to high, so the high and the low are always on the plot, near
+    the time they happened, in the right glyph (at/above the starting capital or
+    below it)."""
+    equity = pd.Series(np.linspace(100_000, 104_000, n),
+                       index=pd.date_range("2020-01-01", periods=n, freq="B"))
+    equity.iloc[high_at] = 130_000
+    if low_at is not None:
+        equity.iloc[low_at] = 70_000
+    rows, columns = _ascii_curve(equity)
+    assert columns == 60
+    assert all(any(row[col] != " " for row in rows) for col in range(columns)), "a column is blank"
+
+    def near(col: int, bar: int) -> bool:
+        return abs(col - bar / (n - 1) * (columns - 1)) <= 1
+
+    top = [col for col, cell in enumerate(rows[0]) if cell != " "]
+    assert top, "the series' high is not plotted"
+    assert all(near(col, high_at) and rows[0][col] == "█" for col in top), (top, rows[0])
+    if low_at is not None:
+        bottom = [col for col, cell in enumerate(rows[-1]) if cell != " "]
+        assert bottom, "the series' low is not plotted"
+        assert all(near(col, low_at) and rows[-1][col] == "▄" for col in bottom), (bottom, rows[-1])
+
+
+def test_the_ascii_equity_curve_marks_a_column_by_which_side_of_capital_it_reaches():
+    """A column whose run of bars crosses the starting capital is drawn "█" from
+    the capital's level up and "▄" below it; one that never reaches it is all "▄"."""
+    values = np.full(120, 100_000.0)
+    values[1:-1] = 95_000.0  # under water from the second bar to the second-to-last
+    values[40] = 110_000.0   # one bar back above capital, inside an interior column
+    values[80] = 90_000.0    # the low, inside another
+    equity = pd.Series(values, index=pd.date_range("2020-01-01", periods=120, freq="B"))
+    rows, _ = _ascii_curve(equity)
+    columns = ["".join(row[col] for row in rows).strip() for col in range(len(rows[0]))]
+    interior = columns[1:-1]  # the first and last columns are the first and last bars, at capital
+    crossing = [i for i, c in enumerate(interior) if "█" in c]
+    assert len(crossing) == 1, interior
+    drawn = interior[crossing[0]]
+    # One unbroken span: █ from the high down to capital's level, then ▄ below it.
+    assert drawn[-1] == "▄" and set(drawn.rstrip("▄")) == {"█"}, drawn
+
+
 def test_optimize_refuses_a_ticker_with_no_data_rather_than_dropping_it():
     """Optimizing the others and exiting 0 is not what was asked for."""
     empty = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])

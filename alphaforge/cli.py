@@ -339,7 +339,15 @@ def _print_backtest_results(result, symbol, strategy, start, end, capital, fill=
 
 
 def _print_ascii_curve(equity: pd.Series, baseline: float, width: int = 60, height: int = 12):
-    """Print a simple ASCII equity curve."""
+    """Print a simple ASCII equity curve, one column per bar or per run of bars.
+
+    A series longer than ``width`` (which must then be at least 3) is drawn with
+    its first and last bars in columns of their own, so the curve starts and ends
+    where the run did, and the bars between split into contiguous runs, one per
+    column. Each such column spans its run's low to its high, so a one-bar spike
+    or crash is drawn wherever it falls, and the high and low printed on the axis
+    are always on the plot.
+    """
     console.print()
     console.print("[bold cyan]── Equity Curve ──────────────────────────────[/bold cyan]")
 
@@ -351,21 +359,28 @@ def _print_ascii_curve(equity: pd.Series, baseline: float, width: int = 60, heig
     def scale(v):
         return int((v - mn) / (mx - mn) * (height - 1))
 
-    # A series wider than the plot is sampled at evenly spaced bars that always
-    # include the first and the last, so the curve ends where the run ended.
-    sampled = values
-    if len(values) > width:
-        sampled = values[np.arange(width) * (len(values) - 1) // (width - 1)]
+    n = len(values)
+    if n > width:
+        # Bars 1..n-2 into width-2 runs; n > width makes every run at least one bar.
+        edges = 1 + np.arange(width - 1) * (n - 2) // (width - 2)
+        spans = [(values[0], values[0])]
+        spans += [(values[a:b].min(), values[a:b].max()) for a, b in zip(edges[:-1], edges[1:])]
+        spans.append((values[-1], values[-1]))
+    else:
+        spans = [(v, v) for v in values]
 
-    canvas = [[" "] * len(sampled) for _ in range(height)]
-    for col, val in enumerate(sampled):
-        row = height - 1 - scale(val)
-        canvas[row][col] = "█" if val >= baseline else "▄"
+    canvas = [[" "] * len(spans) for _ in range(height)]
+    for col, (lo, hi) in enumerate(spans):
+        # A cell is "█" when the curve reaches the baseline or above inside it,
+        # "▄" when it stays below; levels from `above` up are the first kind.
+        above = scale(max(lo, baseline)) if hi >= baseline else height
+        for level in range(scale(lo), scale(hi) + 1):
+            canvas[height - 1 - level][col] = "█" if level >= above else "▄"
 
     console.print(f"  ${mx:>10,.0f} ┐")
     for row in canvas:
         console.print("             │" + "".join(row))
-    console.print(f"  ${mn:>10,.0f} └" + "─" * len(sampled))
+    console.print(f"  ${mn:>10,.0f} └" + "─" * len(spans))
     console.print()
 
 
